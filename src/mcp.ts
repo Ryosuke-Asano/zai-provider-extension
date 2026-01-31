@@ -132,7 +132,7 @@ export class ZaiMcpClient {
         throw new Error(`Failed to list tools: ${response.statusText}`);
       }
 
-      const data = await response.json() as { tools?: McpTool[] };
+      const data = (await response.json()) as { tools?: McpTool[] };
       return data.tools ?? [];
     }
 
@@ -147,7 +147,8 @@ export class ZaiMcpClient {
     return [
       {
         name: "web_search_prime",
-        description: "Search the web for current information using Z.ai Web Search Prime",
+        description:
+          "Search the web for current information using Z.ai Web Search Prime",
         inputSchema: {
           type: "object",
           properties: {
@@ -207,7 +208,8 @@ export class ZaiMcpClient {
       },
       {
         name: "vision_analyze_image",
-        description: "Analyze an image using Z.ai Vision capabilities. Use this to understand image content, extract text, or describe scenes.",
+        description:
+          "Analyze an image using Z.ai Vision capabilities. Use this to understand image content, extract text, or describe scenes.",
         inputSchema: {
           type: "object",
           properties: {
@@ -246,7 +248,7 @@ export class ZaiMcpClient {
     }
 
     // Call the Vision API directly via Z.ai chat completions endpoint
-    const response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
+    const response = await fetch("https://api.z.ai/api/coding/paas/v4", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -272,7 +274,7 @@ export class ZaiMcpClient {
       throw new Error(`Vision API error: ${response.status} ${errorText}`);
     }
 
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       choices: Array<{ message: { content: string } }>;
     };
 
