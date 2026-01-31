@@ -1,6 +1,6 @@
 # Z.ai Provider for GitHub Copilot Chat
 
-A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models into GitHub Copilot Chat, enabling you to use powerful GLM models directly in VS Code.
+A Visual Studio Code extension that integrates [Z.ai](https://z.ai) coding models into GitHub Copilot Chat, enabling you to use powerful GLM models directly in VS Code.
 
 ## Features
 
@@ -39,26 +39,26 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models into 
 
 ## Available Models
 
-| Model | Context Window | Max Output | Tool Calling | Vision |
-|-------|----------------|------------|--------------|--------|
-| GLM-4.7 | 128K | 16K | ✅ | ❌ |
-| GLM-4.6 | 128K | 16K | ✅ | ❌ |
-| **GLM-4.6 Vision** | 128K | 16K | ✅ | **✅** |
-| GLM-4 Plus | 128K | 16K | ✅ | ❌ |
-| GLM-4 Air | 128K | 12K | ✅ | ❌ |
-| GLM-4 Flash | 128K | 8K | ✅ | ❌ |
+| Model              | Context Window | Max Output | Tool Calling | Vision |
+| ------------------ | -------------- | ---------- | ------------ | ------ |
+| GLM-4.7            | 128K           | 16K        | ✅           | ❌     |
+| GLM-4.7 Flash      | 128K           | 16K        | ✅           | ❌     |
+| **GLM-4.6 Vision** | 128K           | 16K        | ✅           | **✅** |
 
 ## Built-in MCP Tools
 
 The extension includes support for Z.ai's built-in MCP (Model Context Protocol) tools:
 
 ### 🌐 Web Search Prime
+
 Search the web for current information with recency filtering.
 
 ### 📄 Web Reader
+
 Read and convert web pages to text/markdown format.
 
 ### 📚 ZRead (GitHub Repository Reader)
+
 - Read repository files
 - Get repository structure
 - Search documentation
@@ -102,6 +102,7 @@ zai-provider-extension/
 ## API Configuration
 
 The extension uses the Z.ai API endpoints:
+
 - **Base URL**: `https://api.z.ai/api/paas/v4/`
 - **Chat Completions**: `/chat/completions`
 
@@ -118,13 +119,16 @@ The Z.ai API is OpenAI-compatible, making it easy to integrate with existing too
 ## Troubleshooting
 
 ### "Z.ai API key not found"
+
 - Run the `Z.ai: Manage Z.ai Provider` command to enter your API key
 
 ### "Message exceeds token limit"
+
 - Reduce the length of your message or conversation history
 - Try a model with a larger context window
 
 ### Models not appearing in Copilot Chat
+
 - Ensure you have VS Code 1.104.0 or higher installed
 - Verify that GitHub Copilot is enabled and you're logged in
 - Check that the extension is activated (no errors in the dev tools console)
@@ -140,6 +144,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Support
 
 For issues, questions, or suggestions:
+
 - Open an issue on GitHub
 - Check the [Z.ai documentation](https://docs.z.ai)
 
