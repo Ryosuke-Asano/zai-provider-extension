@@ -1,0 +1,60 @@
+{
+  "name": "zai-vscode-chat",
+  "displayName": "Z.ai Provider for GitHub Copilot Chat",
+  "description": "An extension that integrates Z.ai models into GitHub Copilot Chat",
+  "version": "0.1.0",
+  "publisher": "your-publisher-name",
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "keywords": [
+    "ai",
+    "chat",
+    "copilot",
+    "zai",
+    "glm",
+    "llm"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "zai",
+        "displayName": "Z.ai",
+        "managementCommand": "zai.manage"
+      }
+    ],
+    "commands": [
+      {
+        "command": "zai.manage",
+        "title": "Manage Z.ai Provider",
+        "category": "Z.ai"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "download-api": "dts dev",
+    "postdownload-api": "dts main",
+    "postinstall": "npm run download-api",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@types/vscode": "^1.108.1",
+    "@vscode/dts": "^0.4.1",
+    "eslint": "^9.39.2",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3"
+  }
+}
