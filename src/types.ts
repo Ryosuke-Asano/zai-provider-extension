@@ -149,7 +149,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     contextWindow: 128000,
     maxOutput: 16000,
     supportsTools: true,
-    supportsVision: false,
+    supportsVision: false, // Text-only model
   },
   {
     id: "glm-4.7-flash",
@@ -158,7 +158,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     contextWindow: 128000,
     maxOutput: 16000,
     supportsTools: true,
-    supportsVision: true,
+    supportsVision: false, // No vision support
   },
   {
     id: "glm-4.6v",
@@ -167,6 +167,6 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     contextWindow: 128000,
     maxOutput: 16000,
     supportsTools: true,
-    supportsVision: true,
+    supportsVision: true, // Native vision support
   },
 ];

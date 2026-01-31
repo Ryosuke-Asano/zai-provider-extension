@@ -1,15 +1,17 @@
-# Z.ai Provider for GitHub Copilot Chat
+# Z.ai Chat Provider for VS Code
 
-A Visual Studio Code extension that integrates [Z.ai](https://z.ai) coding models into GitHub Copilot Chat, enabling you to use powerful GLM models directly in VS Code.
+A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-4.7, GLM-4.7 Flash, GLM-4.6V) into GitHub Copilot Chat using the Language Model Chat Provider API.
 
 ## Features
 
-- **Multiple Z.ai Models**: Support for GLM-4.7, GLM-4.6, GLM-4.6 Vision, and more
-- **Universal Vision Support**: All models can analyze images - GLM-4.6 Vision has native support, while GLM-4.7 and others use MCP
-- **MCP-Powered Vision**: Non-Vision models (GLM-4.7, GLM-4.6) automatically use Vision MCP to analyze images
-- **Built-in MCP Tools**: Web Search, Web Reader, GitHub repository tools
-- **Tool Calling**: Full support for function/tool calling capabilities
-- **Streaming Responses**: Real-time streaming of chat responses
+- **Multiple Model Support**: Access to Z.ai's latest GLM models
+  - **GLM-4.7**: High-performance text model (128K context)
+  - **GLM-4.7 Flash**: Fast, cost-effective model with native vision support (128K context)
+  - **GLM-4.6V**: Specialized vision model for image analysis (128K context)
+
+- **Tool Calling**: Full support for function calling and external tools
+- **Streaming Responses**: Real-time response streaming for better UX
+- **BYOK (Bring Your Own Key)**: Use your own Z.ai API key
 - **Secure API Key Storage**: Uses VS Code's secret storage for your API keys
 - **Easy Configuration**: Simple command to manage your Z.ai API key
 
@@ -22,48 +24,32 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) coding model
 ## Quick Start
 
 1. **Install the Extension**
-   - Search for "Z.ai Provider" in the VS Code Extensions Marketplace
-   - Or install from the marketplace (coming soon)
+   - Search for "Z.ai Chat Provider" in the VS Code Extensions Marketplace
+   - Or install via VSIX: `code --install-extension zai-vscode-chat-*.vsix`
 
-2. **Configure Your API Key**
+2. **Get Your API Key**
+   - Visit [Z.ai](https://z.ai) and sign up for an account
+   - Navigate to API settings to generate your API key
+
+3. **Configure the Extension**
    - Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`)
-   - Run `Z.ai: Manage Z.ai Provider`
-   - Enter your Z.ai API key
+   - Run: `Z.ai: Manage API Key`
+   - Enter your Z.ai API key when prompted
 
-3. **Use in Copilot Chat**
-   - Open the Copilot Chat panel
-   - Click the model picker (dropdown in the chat input)
-   - Click "Manage Models..."
-   - Select "Z.ai" as the provider
-   - Choose your preferred Z.ai model
+4. **Start Chatting**
+   - Open GitHub Copilot Chat (`Ctrl+Alt+I` or `Cmd+Alt+I`)
+   - Select a Z.ai model from the model selector
+   - Start chatting!
 
-## Available Models
+## Model Capabilities
 
-| Model              | Context Window | Max Output | Tool Calling | Vision |
-| ------------------ | -------------- | ---------- | ------------ | ------ |
-| GLM-4.7            | 128K           | 16K        | ✅           | ❌     |
-| GLM-4.7 Flash      | 128K           | 16K        | ✅           | ❌     |
-| **GLM-4.6 Vision** | 128K           | 16K        | ✅           | **✅** |
+| Model             | Context Window | Max Output | Tool Calling | Vision |
+| ----------------- | -------------- | ---------- | ------------ | ------ |
+| **GLM-4.7**       | 128K           | 16K        | ✅           | ❌     |
+| **GLM-4.7 Flash** | 128K           | 16K        | ✅           | ❌     |
+| **GLM-4.6V**      | 128K           | 16K        | ✅           | ✅     |
 
-## Built-in MCP Tools
-
-The extension includes support for Z.ai's built-in MCP (Model Context Protocol) tools:
-
-### 🌐 Web Search Prime
-
-Search the web for current information with recency filtering.
-
-### 📄 Web Reader
-
-Read and convert web pages to text/markdown format.
-
-### 📚 ZRead (GitHub Repository Reader)
-
-- Read repository files
-- Get repository structure
-- Search documentation
-
-These tools are automatically available when using Z.ai models with tool calling enabled.
+**Note**: Vision support is only available for GLM-4.6V model. GLM-4.7 and GLM-4.7 Flash do not support image input.
 
 ## Development
 
@@ -101,12 +87,10 @@ zai-provider-extension/
 
 ## API Configuration
 
-The extension uses the Z.ai API endpoints:
+The extension uses the Z.ai Coding Plan API:
 
-- **Base URL**: `https://api.z.ai/api/paas/v4/`
-- **Chat Completions**: `/chat/completions`
-
-The Z.ai API is OpenAI-compatible, making it easy to integrate with existing tooling.
+- **Endpoint**: `https://api.z.ai/api/coding/paas/v4`
+- **Compatible with**: OpenAI API format
 
 ## Getting a Z.ai API Key
 
