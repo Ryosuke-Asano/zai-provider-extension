@@ -5,8 +5,9 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models into 
 ## Features
 
 - **Multiple Z.ai Models**: Support for GLM-4.7, GLM-4.6, GLM-4.6 Vision, and more
-- **Vision Support**: GLM-4.6 Vision model for image analysis and understanding
-- **Built-in MCP Tools**: Integrated support for Web Search, Web Reader, and GitHub repository tools
+- **Universal Vision Support**: All models can analyze images - GLM-4.6 Vision has native support, while GLM-4.7 and others use MCP
+- **MCP-Powered Vision**: Non-Vision models (GLM-4.7, GLM-4.6) automatically use Vision MCP to analyze images
+- **Built-in MCP Tools**: Web Search, Web Reader, GitHub repository tools
 - **Tool Calling**: Full support for function/tool calling capabilities
 - **Streaming Responses**: Real-time streaming of chat responses
 - **Secure API Key Storage**: Uses VS Code's secret storage for your API keys

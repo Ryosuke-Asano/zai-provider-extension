@@ -23,13 +23,13 @@ export function convertMessages(
 		// Check if message contains image parts (for Vision models)
 		// LanguageModelImagePart may be available as "image" in content
 		const imageParts = msg.content.filter(
-			(part) => (part as any).type === "image" || part instanceof (vscode as any).LanguageModelImagePart
+			(part) => (part as any).type === "image" || part.constructor.name === "LanguageModelImagePart"
 		) as any[];
 
-		// Extract content from message parts
+		// Extract content from message parts - check for 'value' property instead of type
 		const textParts = msg.content.filter(
-			(part) => part instanceof vscode.LanguageModelTextPart
-		) as vscode.LanguageModelTextPart[];
+			(part) => (part as any).value !== undefined
+		) as any[];
 
 		// If we have images, use content array format (for Vision)
 		if (imageParts.length > 0) {
@@ -60,45 +60,55 @@ export function convertMessages(
 			zaiMsg.content = contentParts;
 		} else {
 			// Simple text-only message
-			zaiMsg.content = textParts.map((part) => part.value).join("");
+			const textContent = textParts.map((part) => part.value).join("");
+			// Ensure content is never empty - Z.ai API rejects empty content
+			zaiMsg.content = textContent || "(empty message)";
 		}
 
 		// Handle tool calls if present
 		const toolCallParts = msg.content.filter(
-			(part) => part instanceof vscode.LanguageModelToolCallPart
-		) as vscode.LanguageModelToolCallPart[];
+			(part) => (part as any).type === "tool_call" || part.constructor.name === "LanguageModelToolCallPart" || part.constructor.name === "$a"
+		) as any[];
 
 		if (toolCallParts.length > 0) {
-			zaiMsg.tool_calls = toolCallParts.map((tc) => ({
+			zaiMsg.tool_calls = toolCallParts.map((tc: any) => ({
 				id: tc.callId,
 				type: "function",
 				function: {
 					name: tc.name,
-					arguments: JSON.stringify(tc.input),
+					arguments: JSON.stringify(tc.input || tc.arguments),
 				},
 			}));
 		}
 
 		// Handle tool result if present
 		const toolResultParts = msg.content.filter(
-			(part) => part instanceof vscode.LanguageModelToolResultPart
-		) as vscode.LanguageModelToolResultPart[];
+			(part) => (part as any).type === "tool_result" || part.constructor.name === "LanguageModelToolResultPart" || part.constructor.name === "nl"
+		) as any[];
 
 		if (toolResultParts.length > 0) {
 			const textContent = textParts.map((part) => part.value).join("");
-			const toolResults = toolResultParts.map((tr) => {
-				const result = (tr as any).valueOf?.();
-				if (typeof result === "string") {
-					return result;
+			const toolResults = toolResultParts.map((tr: any) => {
+				// Try different ways to extract the result value
+				if (typeof tr.value === "string") {
+					return tr.value;
 				}
-				return JSON.stringify(result ?? tr);
+				if (typeof tr.valueOf === "function") {
+					const result = tr.valueOf();
+					if (typeof result === "string") {
+						return result;
+					}
+					return JSON.stringify(result);
+				}
+				// Fallback: stringify the whole object
+				return JSON.stringify(tr);
 			}).join("\n");
-			zaiMsg.content = textContent + "\n" + toolResults;
+			zaiMsg.content = (textContent + "\n" + toolResults).trim();
 		}
 
 		// Set tool_call_id for tool result messages
-		if (msg.role === (vscode.LanguageModelChatMessageRole as any).Tool && toolResultParts.length > 0) {
-			zaiMsg.tool_call_id = toolResultParts[0].callId;
+		if ((msg.role as any) === "tool" && toolResultParts.length > 0) {
+			zaiMsg.tool_call_id = (toolResultParts[0] as any).callId;
 		}
 
 		result.push(zaiMsg);
@@ -175,8 +185,8 @@ export function estimateMessagesTokens(
 	let total = 0;
 	for (const m of messages) {
 		for (const part of m.content) {
-			if (part instanceof vscode.LanguageModelTextPart) {
-				total += estimateTokens(part.value);
+			if ((part as any).type === "text") {
+				total += estimateTokens((part as any).value);
 			} else if ((part as any).type === "image") {
 				// Rough estimate: images typically cost ~1000-2000 tokens
 				total += 1500;

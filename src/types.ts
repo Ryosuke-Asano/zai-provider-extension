@@ -127,7 +127,7 @@ export const ZAI_MCP_SERVERS: Record<string, ZaiMcpServer> = {
     type: "http",
     url: "https://api.z.ai/api/mcp/web_reader/mcp",
   },
-  "zread": {
+  zread: {
     type: "http",
     url: "https://api.z.ai/api/mcp/zread/mcp",
   },
@@ -149,7 +149,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     contextWindow: 128000,
     maxOutput: 16000,
     supportsTools: true,
-    supportsVision: false,
+    supportsVision: true,
   },
   {
     id: "glm-4.7-flash",
@@ -158,7 +158,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     contextWindow: 128000,
     maxOutput: 16000,
     supportsTools: true,
-    supportsVision: false,
+    supportsVision: true,
   },
   {
     id: "glm-4.6v",
@@ -176,6 +176,6 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     contextWindow: 128000,
     maxOutput: 16000,
     supportsTools: true,
-    supportsVision: false,
+    supportsVision: true,
   },
 ];

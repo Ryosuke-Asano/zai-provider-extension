@@ -253,7 +253,7 @@ export class ZaiMcpClient {
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: "glm-4v", // Use Vision model for image analysis
+        model: "glm-4v-plus", // Use Vision model for image analysis
         messages: [
           {
             role: "user",
