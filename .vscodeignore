@@ -1,11 +1,29 @@
+# VS Code
 .vscode/**
 .vscode-test/**
+
+# Source
 src/**
+tsconfig.json
+**/*.ts
+**/*.map
+
+# Development
+.claude/**
 .gitignore**
 .eslintrc.json
-**/*.map
-**/*.ts
+.prettierrc
+scripts/**
+
+# Dependencies
 node_modules/**
+
+# Git
 .git/**
+.github/**
+
+# OS
 .DS_Store
+
+# Build artifacts
 *.vsix

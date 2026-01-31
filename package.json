@@ -3,7 +3,12 @@
   "displayName": "Z.ai Chat Provider for VS Code",
   "description": "Integrates Z.ai models (GLM-4.7, GLM-4.7 Flash, GLM-4.6V) into VS Code Copilot Chat",
   "version": "0.1.0",
-  "publisher": "Ryosuke Asano | Floorp Project",
+  "publisher": "Ryosuke-Asano",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ryosuke-Asano/zai-vscode-chat"
+  },
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -51,7 +56,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
-    "@types/vscode": "^1.108.1",
+    "@types/vscode": "^1.104.0",
     "@vscode/dts": "^0.4.1",
     "eslint": "^9.39.2",
     "prettier": "^3.8.1",
