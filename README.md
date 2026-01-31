@@ -6,8 +6,8 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 
 - **Multiple Model Support**: Access to Z.ai's latest GLM models
   - **GLM-4.7**: High-performance text model (128K context)
-  - **GLM-4.7 Flash**: Fast, cost-effective model with native vision support (128K context)
-  - **GLM-4.6V**: Specialized vision model for image analysis (128K context)
+  - **GLM-4.7 Flash**: Fast, cost-effective model (128K context)
+  - **GLM-4.6V**: Vision-capable model (128K context)
 
 - **Tool Calling**: Full support for function calling and external tools
 - **Streaming Responses**: Real-time response streaming for better UX
@@ -47,9 +47,11 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 | ----------------- | -------------- | ---------- | ------------ | ------ |
 | **GLM-4.7**       | 128K           | 16K        | ✅           | ❌     |
 | **GLM-4.7 Flash** | 128K           | 16K        | ✅           | ❌     |
-| **GLM-4.6V**      | 128K           | 16K        | ✅           | ✅     |
+| **GLM-4.6V**      | 128K           | 16K        | ✅           | ❌     |
 
-**Note**: Vision support is only available for GLM-4.6V model. GLM-4.7 and GLM-4.7 Flash do not support image input.
+### Important Limitations
+
+**Image support is currently not available** due to VS Code API limitations. While GLM-4.6V natively supports vision, VS Code's Language Model Chat Provider API does not provide extensions with access to image data from chat messages. This is a platform-level limitation that may be addressed in future VS Code updates.
 
 ## Development
 
@@ -116,6 +118,13 @@ The extension uses the Z.ai Coding Plan API:
 - Ensure you have VS Code 1.104.0 or higher installed
 - Verify that GitHub Copilot is enabled and you're logged in
 - Check that the extension is activated (no errors in the dev tools console)
+
+### Images not being processed by GLM-4.6V
+
+- Due to VS Code API limitations, image data is not accessible to extensions
+- VS Code provides only ephemeral references to images, not the actual image bytes
+- This is a platform limitation that affects all Language Model Chat Provider extensions
+- Vote for [VS Code issue](https://github.com/microsoft/vscode/issues) to request image data access for extensions
 
 ## License
 

@@ -48,16 +48,41 @@ export function convertMessages(
 			for (const imgPart of imageParts) {
 				// Convert image to base64 data URL
 				const mimeType = imgPart.mimeType ?? "image/png";
-				const base64Data = Buffer.from(imgPart.bytes).toString("base64");
-				contentParts.push({
-					type: "image_url",
-					image_url: {
-						url: `data:${mimeType};base64,${base64Data}`,
-					},
-				});
+
+				// Try to get image bytes from different properties
+				let imageData: Uint8Array | undefined;
+
+				if (imgPart.bytes) {
+					imageData = imgPart.bytes;
+				} else if ((imgPart as any).data) {
+					imageData = (imgPart as any).data;
+				} else if ((imgPart as any).buffer) {
+					imageData = new Uint8Array((imgPart as any).buffer);
+				}
+
+				if (imageData && imageData.length > 0) {
+					const base64Data = Buffer.from(imageData).toString("base64");
+					contentParts.push({
+						type: "image_url",
+						image_url: {
+							url: `data:${mimeType};base64,${base64Data}`,
+						},
+					});
+				} else {
+					// No actual image data available - this is expected with VSCode's ephemeral references
+					// We'll skip this image since we can't access the actual file
+					console.warn("[Z.ai] Image part has no accessible byte data:", imgPart);
+				}
 			}
 
-			zaiMsg.content = contentParts;
+			// Only use content array format if we have valid images
+			if (contentParts.length > 1) { // 1 because we always have text
+				zaiMsg.content = contentParts;
+			} else {
+				// No valid images, fall back to text-only
+				const textContent = textParts.map((part) => part.value).join("");
+				zaiMsg.content = textContent || "(empty message)";
+			}
 		} else {
 			// Simple text-only message
 			const textContent = textParts.map((part) => part.value).join("");
