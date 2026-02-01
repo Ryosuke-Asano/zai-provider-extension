@@ -163,8 +163,8 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
   },
   {
     id: "glm-4.6v",
-    name: "GLM-4.6 Vision",
-    displayName: "GLM-4.6 Vision",
+    name: "GLM-4.6",
+    displayName: "GLM-4.6",
     contextWindow: 128000,
     maxOutput: 16000,
     supportsTools: true,
