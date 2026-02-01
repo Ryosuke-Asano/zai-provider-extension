@@ -3,14 +3,21 @@
     "module": "commonjs",
     "target": "ES2020",
     "outDir": "out",
-    "lib": ["ES2020"],
+    "lib": [
+      "ES2020",
+      "DOM"
+    ],
     "sourceMap": true,
     "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node"
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true
   },
-  "exclude": ["node_modules", ".vscode-test"]
+  "exclude": [
+    "node_modules",
+    ".vscode-test"
+  ]
 }

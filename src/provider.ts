@@ -121,12 +121,15 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     const processedMessages: LanguageModelChatMessage[] = [];
 
     for (const msg of messages) {
-      // Check for image parts
+      // Check for image parts (both old LanguageModelImagePart and new LanguageModelDataPart)
       const imageParts = msg.content.filter(
         (part) => (part as any).type === "image"
       ) as any[];
+      const dataParts = msg.content.filter(
+        (part) => (part as any).mimeType && (part as any).mimeType.startsWith("image/")
+      ) as any[];
 
-      if (imageParts.length === 0) {
+      if (imageParts.length === 0 && dataParts.length === 0) {
         // No images, keep message as-is
         processedMessages.push(msg);
         continue;
@@ -138,15 +141,53 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       ) as any[];
       const userPrompt = textParts.map((p) => p.value).join(" ");
 
-      // Process each image
+      // Process each image (LanguageModelImagePart)
       for (const imgPart of imageParts) {
         if (token.isCancellationRequested) {
           throw new Error("Cancelled");
         }
 
+        if (!imgPart.bytes) {
+          console.warn("[Z.ai] Image part has no byte data, skipping");
+          continue;
+        }
+
         // Convert image to base64 data URL
         const mimeType = imgPart.mimeType ?? "image/png";
         const base64Data = Buffer.from(imgPart.bytes).toString("base64");
+        const imageDataUrl = `data:${mimeType};base64,${base64Data}`;
+
+        // Use Vision MCP to analyze image
+        const analysisPrompt = userPrompt || "Describe this image in detail.";
+        const description = await this._mcpClient.analyzeImage(
+          imageDataUrl,
+          analysisPrompt
+        );
+        imageDescriptions.push(description);
+      }
+
+      // Process each data part (LanguageModelDataPart)
+      for (const dataPart of dataParts) {
+        if (token.isCancellationRequested) {
+          throw new Error("Cancelled");
+        }
+
+        // Try to get byte data from data part
+        let imageData: Uint8Array | undefined;
+        if (dataPart.bytes) {
+          imageData = dataPart.bytes;
+        } else if ((dataPart as any).data) {
+          imageData = (dataPart as any).data;
+        }
+
+        if (!imageData || imageData.length === 0) {
+          console.warn("[Z.ai] DataPart has no accessible byte data, skipping");
+          continue;
+        }
+
+        // Convert image to base64 data URL
+        const mimeType = dataPart.mimeType ?? "image/png";
+        const base64Data = Buffer.from(imageData).toString("base64");
         const imageDataUrl = `data:${mimeType};base64,${base64Data}`;
 
         // Use Vision MCP to analyze image
@@ -223,12 +264,13 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       }
 
       // Pre-process images for non-Vision models
-      // TEMPORARILY DISABLED FOR DEBUGGING
-      // const { processedMessages, imageDescriptions } =
-      //   await this.processImagesForNonVisionModel(messages, model.id, token);
+      // If model supports vision, we'll use the original messages directly
+      // Otherwise, we'll process images and convert them to text descriptions
+      const { processedMessages, imageDescriptions } =
+        await this.processImagesForNonVisionModel(messages, model.id, token);
 
-      // Use original messages (images converted to text for non-Vision models)
-      const zaiMessages = convertMessages(messages);
+      // Use processed messages (images converted to text for non-Vision models)
+      const zaiMessages = convertMessages(processedMessages);
       validateRequest(messages);
 
       const toolConfig = convertTools(options);
