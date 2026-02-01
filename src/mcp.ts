@@ -229,7 +229,7 @@ export class ZaiMcpClient {
   }
 
   /**
-   * Analyze an image using Z.ai Vision MCP
+   * Analyze an image using Z.ai Vision API directly
    * This can be used for non-Vision models to add image processing capabilities
    * @param imageData Base64-encoded image (data URL format)
    * @param prompt What to analyze in the image
@@ -240,14 +240,7 @@ export class ZaiMcpClient {
       throw new Error("Z.ai API key not found");
     }
 
-    const { ZAI_MCP_SERVERS } = await import("./types");
-    const server = ZAI_MCP_SERVERS["vision-mcp"];
-
-    if (!server || server.type !== "http") {
-      throw new Error("Vision MCP server not configured");
-    }
-
-    // Call the Vision API directly via Z.ai chat completions endpoint
+    // Call Vision API directly via Z.ai chat completions endpoint
     const response = await fetch(
       "https://api.z.ai/api/coding/paas/v4/chat/completions",
       {
