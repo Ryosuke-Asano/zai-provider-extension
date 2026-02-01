@@ -52,10 +52,6 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 | **GLM-4.7 Flash** | 128K           | 16K        | ✅           | ❌     |
 | **GLM-4.6V**      | 128K           | 16K        | ✅           | ❌     |
 
-### Important Limitations
-
-**Image support is currently not available** due to VS Code API limitations. While GLM-4.6V natively supports vision, VS Code's Language Model Chat Provider API does not provide extensions with access to image data from chat messages. This is a platform-level limitation that may be addressed in future VS Code updates.
-
 ## Vision Support
 
 This extension now provides vision capabilities for all Z.ai models:
@@ -90,9 +86,9 @@ For GLM-4.5, GLM-4.6, and GLM-4.7 models, you can now see the model's reasoning 
 ```
 <details open>
   <summary>🧠 Thinking Process</summary>
-  
+
   (Model's step-by-step reasoning shown here)
-  
+
 </details>
 
 (The final answer)
