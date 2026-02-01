@@ -1,8 +1,8 @@
 {
   "name": "zai-vscode-chat",
   "displayName": "Z.ai Chat Provider for VS Code",
-  "description": "Integrates Z.ai models (GLM-4.7, GLM-4.7 Flash, GLM-4.6V) into VS Code Copilot Chat",
-  "version": "0.1.1",
+  "description": "Integrates Z.ai models (GLM-4.7, GLM-4.7 Flash, GLM-4.6V) into VS Code Copilot Chat with vision support and thinking process display",
+  "version": "0.2.0",
   "publisher": "Ryosuke-Asano",
   "license": "MIT",
   "repository": {
