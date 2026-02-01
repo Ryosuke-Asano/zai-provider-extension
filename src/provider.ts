@@ -43,6 +43,24 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   /** Buffer for reasoning content from thinking mode */
   private _reasoningContentBuffer = "";
 
+  /**
+   * Format reasoning content with proper markdown formatting.
+   * Each line is prefixed with '> ' for quote block display.
+   */
+  private formatReasoningContent(content: string, isComplete: boolean): string {
+    // Normalize line endings and trim
+    const normalized = content.replace(/\r\n/g, '\n').trim();
+    
+    // Split into lines and add quote prefix to each
+    const quotedLines = normalized
+      .split('\n')
+      .map(line => `> ${line}`)
+      .join('\n');
+    
+    const header = isComplete ? '> **🧠 Thinking Process**' : '> *🧠 Thinking...*';
+    return `${header}\n>\n${quotedLines}\n\n---\n\n`;
+  }
+
   /** MCP client for Vision and other tools */
   private _mcpClient: ZaiMcpClient;
 
@@ -460,9 +478,11 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           if (data === "[DONE]") {
             // Flush any buffered reasoning content
             if (this._reasoningContentBuffer) {
-              const reasoningText = new vscode.LanguageModelTextPart(
-                `> **🧠 Thinking Process**\n> \n> ${this._reasoningContentBuffer}\n> \n> ---\n> \n`
+              const formattedReasoning = this.formatReasoningContent(
+                this._reasoningContentBuffer,
+                true // isComplete
               );
+              const reasoningText = new vscode.LanguageModelTextPart(formattedReasoning);
               progress.report(reasoningText);
               this._reasoningContentBuffer = "";
             }
@@ -526,16 +546,18 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     if (deltaObj?.content) {
       const content = String(deltaObj.content);
 
-      // If we have reasoning content buffered, emit it first in a quote block
+      // If we have reasoning content buffered, emit it first in a collapsible block
       if (this._reasoningContentBuffer) {
         console.log("[Z.ai Model Provider] 📦 Emitting reasoning content", {
           length: this._reasoningContentBuffer.length,
           timestamp: new Date().toISOString(),
         });
-        // Use quote block for visual distinction
-        const reasoningText = new vscode.LanguageModelTextPart(
-          `> *🧠 Thinking Process...* \n> \n> ${this._reasoningContentBuffer}\n> \n> ---\n> \n`
+        // Use collapsible details section for completed reasoning
+        const formattedReasoning = this.formatReasoningContent(
+          this._reasoningContentBuffer,
+          true // isComplete - reasoning is done, content is about to start
         );
+        const reasoningText = new vscode.LanguageModelTextPart(formattedReasoning);
         progress.report(reasoningText);
         this._reasoningContentBuffer = "";
       }
