@@ -81,7 +81,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         maxOutputTokens: model.maxOutput,
         capabilities: {
           toolCalling: model.supportsTools,
-          imageInput: model.supportsVision,
+          imageInput: true, // All models can process images via MCP (Vision models natively, others via text conversion)
         },
       })
     );
@@ -126,7 +126,8 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         (part) => (part as any).type === "image"
       ) as any[];
       const dataParts = msg.content.filter(
-        (part) => (part as any).mimeType && (part as any).mimeType.startsWith("image/")
+        (part) =>
+          (part as any).mimeType && (part as any).mimeType.startsWith("image/")
       ) as any[];
 
       if (imageParts.length === 0 && dataParts.length === 0) {

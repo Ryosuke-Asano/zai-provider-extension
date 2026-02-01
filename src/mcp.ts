@@ -248,26 +248,29 @@ export class ZaiMcpClient {
     }
 
     // Call the Vision API directly via Z.ai chat completions endpoint
-    const response = await fetch("https://api.z.ai/api/coding/paas/v4", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "glm-4v-plus", // Use Vision model for image analysis
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: imageData } },
-            ],
-          },
-        ],
-        max_tokens: 2000,
-      }),
-    });
+    const response = await fetch(
+      "https://api.z.ai/api/coding/paas/v4/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "glm-4.6v", // Use Vision model for image analysis
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: imageData } },
+              ],
+            },
+          ],
+          max_tokens: 2000,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
