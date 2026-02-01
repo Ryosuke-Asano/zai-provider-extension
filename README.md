@@ -46,11 +46,11 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 
 ## Model Capabilities
 
-| Model             | Context Window | Max Output | Tool Calling | Vision |
-| ----------------- | -------------- | ---------- | ------------ | ------ |
-| **GLM-4.7**       | 128K           | 16K        | ✅           | ❌     |
-| **GLM-4.7 Flash** | 128K           | 16K        | ✅           | ❌     |
-| **GLM-4.6V**      | 128K           | 16K        | ✅           | ❌     |
+| Model             | Context Window | Max Output | Tool Calling | Vision | Thinking |
+| ----------------- | -------------- | ---------- | ------------ | ------ | -------- |
+| **GLM-4.7**       | 128K           | 16K        | ✅           | ✅     | ✅       |
+| **GLM-4.7 Flash** | 128K           | 16K        | ✅           | ✅     | ✅       |
+| **GLM-4.6V**      | 128K           | 16K        | ✅           | ✅     | ✅       |
 
 ## Vision Support
 
@@ -73,11 +73,11 @@ This extension now provides vision capabilities for all Z.ai models:
 
 When images are being analyzed, you can see detailed progress logs in the VS Code Developer Tools console:
 
-- `🖼️` Starting image analysis...
-- `📡` Sending request to Vision API...
-- `⏱️` Response received with timing
-- `✅` Analysis completed with response length and total time
-- `❌` Error information if analysis fails
+- 🖼️ Starting image analysis...
+- 📡 Sending request to Vision API...
+- ⏱️ Response received with timing
+- ✅ Analysis completed with response length and total time
+- ❌ Error information if analysis fails
 
 ## Thinking Process Display
 
@@ -98,10 +98,9 @@ For GLM-4.5, GLM-4.6, and GLM-4.7 models, you can now see the model's reasoning 
 
 When reasoning is in progress, you can see detailed progress logs:
 
-- `🚀` Starting chat request with thinking enabled
-- `🧠` Starting reasoning/thinking process...
-- `📦` Emitting reasoning content with length
-- `🚀` Starting chat request with thinking enabled
+- 🚀 Starting chat request with thinking enabled
+- 🧠 Starting reasoning/thinking process...
+- 📦 Emitting reasoning content with length
 
 ## Development
 

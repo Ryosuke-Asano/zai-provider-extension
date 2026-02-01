@@ -534,7 +534,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         });
         // Use quote block for visual distinction
         const reasoningText = new vscode.LanguageModelTextPart(
-          `> ** 🧠 Thinking...**\n> \n> ${this._reasoningContentBuffer}\n> \n> ---\n> \n`
+          `> *🧠 Thinking Process...* \n> \n> ${this._reasoningContentBuffer}\n> \n> ---\n> \n`
         );
         progress.report(reasoningText);
         this._reasoningContentBuffer = "";
