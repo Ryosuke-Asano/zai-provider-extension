@@ -49,15 +49,17 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
    */
   private formatReasoningContent(content: string, isComplete: boolean): string {
     // Normalize line endings and trim
-    const normalized = content.replace(/\r\n/g, '\n').trim();
-    
+    const normalized = content.replace(/\r\n/g, "\n").trim();
+
     // Split into lines and add quote prefix to each
     const quotedLines = normalized
-      .split('\n')
-      .map(line => `> ${line}`)
-      .join('\n');
-    
-    const header = isComplete ? '> **🧠 Thinking Process**' : '> *🧠 Thinking...*';
+      .split("\n")
+      .map((line) => `> ${line}`)
+      .join("\n");
+
+    const header = isComplete
+      ? "> **🧠 Thinking Process**"
+      : "> *🧠 Thinking...*";
     return `${header}\n>\n${quotedLines}\n\n---\n\n`;
   }
 
@@ -482,7 +484,9 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
                 this._reasoningContentBuffer,
                 true // isComplete
               );
-              const reasoningText = new vscode.LanguageModelTextPart(formattedReasoning);
+              const reasoningText = new vscode.LanguageModelTextPart(
+                formattedReasoning
+              );
               progress.report(reasoningText);
               this._reasoningContentBuffer = "";
             }
@@ -557,7 +561,9 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           this._reasoningContentBuffer,
           true // isComplete - reasoning is done, content is about to start
         );
-        const reasoningText = new vscode.LanguageModelTextPart(formattedReasoning);
+        const reasoningText = new vscode.LanguageModelTextPart(
+          formattedReasoning
+        );
         progress.report(reasoningText);
         this._reasoningContentBuffer = "";
       }
