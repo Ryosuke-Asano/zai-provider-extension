@@ -236,44 +236,81 @@ export class ZaiMcpClient {
    * @returns Image analysis result
    */
   async analyzeImage(imageData: string, prompt: string): Promise<string> {
+    const startTime = Date.now();
+    console.log("[Z.ai Vision API] 🖼️  Starting image analysis...", {
+      prompt: prompt.substring(0, 100) + (prompt.length > 100 ? "..." : ""),
+      timestamp: new Date().toISOString(),
+    });
+
     if (!(await this.ensureApiKey())) {
+      console.error("[Z.ai Vision API] ❌ API key not found");
       throw new Error("Z.ai API key not found");
     }
 
-    // Call Vision API directly via Z.ai chat completions endpoint
-    const response = await fetch(
-      "https://api.z.ai/api/coding/paas/v4/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "glm-4.6v", // Use Vision model for image analysis
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: imageData } },
-              ],
-            },
-          ],
-          max_tokens: 2000,
-        }),
+    try {
+      // Call Vision API directly via Z.ai chat completions endpoint
+      console.log("[Z.ai Vision API] 📡 Sending request to Vision API...");
+      const response = await fetch(
+        "https://api.z.ai/api/coding/paas/v4/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "glm-4.6v", // Use Vision model for image analysis
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: imageData } },
+                ],
+              },
+            ],
+            max_tokens: 2000,
+          }),
+        }
+      );
+
+      const elapsed = Date.now() - startTime;
+      console.log("[Z.ai Vision API] ⏱️  Response received", {
+        status: response.status,
+        elapsed: `${elapsed}ms`,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[Z.ai Vision API] ❌ API request failed", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText.substring(0, 200),
+        });
+        throw new Error(`Vision API error: ${response.status} ${errorText}`);
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Vision API error: ${response.status} ${errorText}`);
+      const data = (await response.json()) as {
+        choices: Array<{ message: { content: string } }>;
+      };
+
+      const totalTime = Date.now() - startTime;
+      const result =
+        data.choices?.[0]?.message?.content ?? "Failed to analyze image";
+
+      console.log("[Z.ai Vision API] ✅ Image analysis completed", {
+        responseLength: result.length,
+        totalElapsed: `${totalTime}ms`,
+      });
+
+      return result;
+    } catch (error) {
+      const totalTime = Date.now() - startTime;
+      console.error("[Z.ai Vision API] ❌ Image analysis failed", {
+        error: error instanceof Error ? error.message : String(error),
+        elapsed: `${totalTime}ms`,
+      });
+      throw error;
     }
-
-    const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>;
-    };
-
-    return data.choices?.[0]?.message?.content ?? "Failed to analyze image";
   }
 }

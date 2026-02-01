@@ -37,6 +37,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   /** Track if we emitted any assistant text before seeing tool calls */
   private _hasEmittedAssistantText = false;
 
+  /** Track if we emitted any thinking/reasoning content */
+  private _hasEmittedThinkingContent = false;
+
+  /** Buffer for reasoning content from thinking mode */
+  private _reasoningContentBuffer = "";
+
   /** MCP client for Vision and other tools */
   private _mcpClient: ZaiMcpClient;
 
@@ -300,6 +306,10 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           model.maxOutputTokens
         ),
         temperature: options.modelOptions?.temperature ?? 0.7,
+        // Enable thinking mode for GLM-4.5/4.6/4.7 models
+        thinking: {
+          type: "enabled",
+        },
       };
 
       // Allow-list model options
@@ -319,6 +329,13 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       if (toolConfig.tools) {
         requestBody.tools = toolConfig.tools;
       }
+
+      console.log("[Z.ai Model Provider] 🚀 Starting chat request", {
+        model: model.id,
+        messageCount: messages.length,
+        thinkingEnabled: true,
+        timestamp: new Date().toISOString(),
+      });
 
       const response = await fetch(`${BASE_URL}/chat/completions`, {
         method: "POST",
@@ -441,6 +458,14 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           }
           const data = line.slice(6);
           if (data === "[DONE]") {
+            // Flush any buffered reasoning content
+            if (this._reasoningContentBuffer) {
+              const reasoningText = new vscode.LanguageModelTextPart(
+                `> **🧠 Thinking Process**\n> \n> ${this._reasoningContentBuffer}\n> \n> ---\n> \n`
+              );
+              progress.report(reasoningText);
+              this._reasoningContentBuffer = "";
+            }
             await this.flushToolCallBuffers(progress, true);
             continue;
           }
@@ -459,6 +484,8 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       this._toolCallBuffers.clear();
       this._completedToolCallIndices.clear();
       this._hasEmittedAssistantText = false;
+      this._hasEmittedThinkingContent = false;
+      this._reasoningContentBuffer = "";
     }
   }
 
@@ -479,9 +506,40 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
 
     const deltaObj = choice.delta;
 
+    // Handle reasoning content (thinking process)
+    if (deltaObj?.reasoning_content) {
+      const reasoning = String(deltaObj.reasoning_content);
+      if (!this._hasEmittedThinkingContent) {
+        console.log(
+          "[Z.ai Model Provider] 🧠 Starting reasoning/thinking process...",
+          {
+            timestamp: new Date().toISOString(),
+          }
+        );
+      }
+      this._reasoningContentBuffer += reasoning;
+      this._hasEmittedThinkingContent = true;
+      emitted = true;
+    }
+
     // Handle text content
     if (deltaObj?.content) {
       const content = String(deltaObj.content);
+
+      // If we have reasoning content buffered, emit it first in a quote block
+      if (this._reasoningContentBuffer) {
+        console.log("[Z.ai Model Provider] 📦 Emitting reasoning content", {
+          length: this._reasoningContentBuffer.length,
+          timestamp: new Date().toISOString(),
+        });
+        // Use quote block for visual distinction
+        const reasoningText = new vscode.LanguageModelTextPart(
+          `> ** 🧠 Thinking...**\n> \n> ${this._reasoningContentBuffer}\n> \n> ---\n> \n`
+        );
+        progress.report(reasoningText);
+        this._reasoningContentBuffer = "";
+      }
+
       progress.report(new vscode.LanguageModelTextPart(content));
       this._hasEmittedAssistantText = true;
       emitted = true;

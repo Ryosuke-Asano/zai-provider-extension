@@ -77,6 +77,7 @@ export interface ZaiStreamChoice {
   delta: {
     role?: string;
     content?: string;
+    reasoning_content?: string;
     tool_calls?: ZaiToolCall[];
   };
   finish_reason: string | null;
