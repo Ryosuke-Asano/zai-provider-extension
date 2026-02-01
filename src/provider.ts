@@ -79,6 +79,14 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   }
 
   /**
+   * Get the configuration setting for enabling thinking display.
+   */
+  private isThinkingEnabled(): boolean {
+    const config = vscode.workspace.getConfiguration("zai");
+    return config.get<boolean>("enableThinking", true);
+  }
+
+  /**
    * Get the list of available language models contributed by this provider
    * @param options Options which specify the calling context of this function
    * @param token A cancellation token which signals if the user cancelled the request or not
@@ -326,11 +334,14 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           model.maxOutputTokens
         ),
         temperature: options.modelOptions?.temperature ?? 0.7,
-        // Enable thinking mode for GLM-4.5/4.6/4.7 models
-        thinking: {
-          type: "enabled",
-        },
       };
+
+      // Enable thinking mode if setting is enabled
+      if (this.isThinkingEnabled()) {
+        requestBody.thinking = {
+          type: "enabled",
+        };
+      }
 
       // Allow-list model options
       if (options.modelOptions) {
@@ -353,7 +364,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       console.log("[Z.ai Model Provider] 🚀 Starting chat request", {
         model: model.id,
         messageCount: messages.length,
-        thinkingEnabled: true,
+        thinkingEnabled: this.isThinkingEnabled(),
         timestamp: new Date().toISOString(),
       });
 
@@ -478,8 +489,8 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           }
           const data = line.slice(6);
           if (data === "[DONE]") {
-            // Flush any buffered reasoning content
-            if (this._reasoningContentBuffer) {
+            // Flush any buffered reasoning content if thinking is enabled
+            if (this.isThinkingEnabled() && this._reasoningContentBuffer) {
               const formattedReasoning = this.formatReasoningContent(
                 this._reasoningContentBuffer,
                 true // isComplete
@@ -530,8 +541,8 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
 
     const deltaObj = choice.delta;
 
-    // Handle reasoning content (thinking process)
-    if (deltaObj?.reasoning_content) {
+    // Handle reasoning content (thinking process) - only if thinking is enabled
+    if (this.isThinkingEnabled() && deltaObj?.reasoning_content) {
       const reasoning = String(deltaObj.reasoning_content);
       if (!this._hasEmittedThinkingContent) {
         console.log(
@@ -550,8 +561,8 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     if (deltaObj?.content) {
       const content = String(deltaObj.content);
 
-      // If we have reasoning content buffered, emit it first in a collapsible block
-      if (this._reasoningContentBuffer) {
+      // If we have reasoning content buffered and thinking is enabled, emit it first
+      if (this.isThinkingEnabled() && this._reasoningContentBuffer) {
         console.log("[Z.ai Model Provider] 📦 Emitting reasoning content", {
           length: this._reasoningContentBuffer.length,
           timestamp: new Date().toISOString(),

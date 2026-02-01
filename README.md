@@ -102,6 +102,19 @@ When reasoning is in progress, you can see detailed progress logs:
 - 🧠 Starting reasoning/thinking process...
 - 📦 Emitting reasoning content with length
 
+### Configuration
+
+You can configure the thinking display behavior in VS Code settings:
+
+- **`zai.enableThinking`** (default: `true`)
+  - When `true`: Shows the model's thinking/reasoning process in a collapsible section
+  - When `false`: Hides the thinking process, showing only the final answer
+
+To change this setting:
+1. Open VS Code Settings (`Cmd+,` or `Ctrl+,`)
+2. Search for "zai.enableThinking"
+3. Toggle the setting on or off
+
 ## Development
 
 ```bash

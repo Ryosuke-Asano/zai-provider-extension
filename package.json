@@ -42,7 +42,17 @@
         "title": "Manage Z.ai Provider",
         "category": "Z.ai"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Z.ai",
+      "properties": {
+        "zai.enableThinking": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable thinking/reasoning process display in chat responses. When disabled, the model's reasoning will not be shown."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
