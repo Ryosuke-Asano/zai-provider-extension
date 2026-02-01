@@ -11,6 +11,9 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 
 - **Tool Calling**: Full support for function calling and external tools
 - **Streaming Responses**: Real-time response streaming for better UX
+- **Vision Support**: Image analysis capabilities for all models (native for GLM-4.6V, via Vision API for others)
+- **Thinking Process Display**: View model's reasoning in collapsible sections (GLM-4.5/4.6/4.7)
+- **Detailed Logging**: Progress indicators for image analysis and reasoning process
 - **BYOK (Bring Your Own Key)**: Use your own Z.ai API key
 - **Secure API Key Storage**: Uses VS Code's secret storage for your API keys
 - **Easy Configuration**: Simple command to manage your Z.ai API key
@@ -52,6 +55,57 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 ### Important Limitations
 
 **Image support is currently not available** due to VS Code API limitations. While GLM-4.6V natively supports vision, VS Code's Language Model Chat Provider API does not provide extensions with access to image data from chat messages. This is a platform-level limitation that may be addressed in future VS Code updates.
+
+## Vision Support
+
+This extension now provides vision capabilities for all Z.ai models:
+
+- **GLM-4.6V**: Native vision support via LanguageModelDataPart
+- **GLM-4.7 / GLM-4.7 Flash**: Image analysis via Vision API with automatic text conversion
+
+### How It Works
+
+1. **Native Vision (GLM-4.6V)**: When you send images with GLM-4.6V, the model directly analyzes them and includes visual context in its response.
+
+2. **Non-Vision Models**: When you send images with text-only models (GLM-4.7, GLM-4.7 Flash), the extension:
+   - Analyzes images using the Vision API
+   - Converts the analysis to detailed text descriptions
+   - Includes these descriptions in the chat context
+   - The model then responds based on the image descriptions
+
+### Developer Console Logs
+
+When images are being analyzed, you can see detailed progress logs in the VS Code Developer Tools console:
+
+- `🖼️` Starting image analysis...
+- `📡` Sending request to Vision API...
+- `⏱️` Response received with timing
+- `✅` Analysis completed with response length and total time
+- `❌` Error information if analysis fails
+
+## Thinking Process Display
+
+For GLM-4.5, GLM-4.6, and GLM-4.7 models, you can now see the model's reasoning process displayed in a collapsible section:
+
+```
+<details open>
+  <summary>🧠 Thinking Process</summary>
+  
+  (Model's step-by-step reasoning shown here)
+  
+</details>
+
+(The final answer)
+```
+
+### Developer Console Logs
+
+When reasoning is in progress, you can see detailed progress logs:
+
+- `🚀` Starting chat request with thinking enabled
+- `🧠` Starting reasoning/thinking process...
+- `📦` Emitting reasoning content with length
+- `🚀` Starting chat request with thinking enabled
 
 ## Development
 
