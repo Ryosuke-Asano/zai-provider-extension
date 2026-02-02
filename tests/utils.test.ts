@@ -2,11 +2,6 @@
  * Unit tests for utility functions in utils.ts
  */
 
-import {
-  LanguageModelDataPart,
-  LanguageModelTextPart,
-  LanguageModelChatMessageRole,
-} from "../__mocks__/vscode";
 import * as vscode from "vscode";
 import {
   tryParseJSONObject,
@@ -191,18 +186,15 @@ describe("estimateMessagesTokens", () => {
   });
 
   it("should estimate tokens for messages with images", () => {
-    // Create a mock image part using LanguageModelDataPart.image()
-    const mockImagePart = LanguageModelDataPart.image(
-      new Uint8Array([1, 2, 3, 4]),
-      "image/png"
-    );
+    // Create a mock image part
+    const mockImagePart = {
+      mimeType: "image/png",
+      data: new Uint8Array([1, 2, 3, 4]),
+    } as any;
 
     const message = new vscode.LanguageModelChatMessage(
       vscode.LanguageModelChatMessageRole.User,
-      [
-        new vscode.LanguageModelTextPart("Describe this"),
-        mockImagePart,
-      ] as vscode.LanguageModelInputPart[]
+      [new vscode.LanguageModelTextPart("Describe this"), mockImagePart]
     );
     const tokens = estimateMessagesTokens([message]);
     // 16 chars for text + 1500 for image = 1516
@@ -229,19 +221,16 @@ describe("estimateMessagesTokens", () => {
   });
 
   it("should estimate tokens correctly for multiple messages with mixed content", () => {
-    // Create a mock image part using LanguageModelDataPart.image()
-    const mockImagePart = LanguageModelDataPart.image(
-      new Uint8Array([1, 2, 3, 4]),
-      "image/png"
-    );
+    // Create a mock image part
+    const mockImagePart = {
+      mimeType: "image/png",
+      data: new Uint8Array([1, 2, 3, 4]),
+    } as any;
 
     const messages = [
       new vscode.LanguageModelChatMessage(
         vscode.LanguageModelChatMessageRole.User,
-        [
-          new vscode.LanguageModelTextPart("First message"),
-          mockImagePart,
-        ] as vscode.LanguageModelInputPart[]
+        [new vscode.LanguageModelTextPart("First message"), mockImagePart]
       ),
       new vscode.LanguageModelChatMessage(
         vscode.LanguageModelChatMessageRole.Assistant,
@@ -249,10 +238,7 @@ describe("estimateMessagesTokens", () => {
       ),
       new vscode.LanguageModelChatMessage(
         vscode.LanguageModelChatMessageRole.User,
-        [
-          new vscode.LanguageModelTextPart("Follow up"),
-          mockImagePart,
-        ] as vscode.LanguageModelInputPart[]
+        [new vscode.LanguageModelTextPart("Follow up"), mockImagePart]
       ),
     ];
     const tokens = estimateMessagesTokens(messages);

@@ -1,5 +1,9 @@
 # Z.ai Chat Provider for VS Code
 
+[![CI](https://github.com/Ryosuke-Asano/zai-vscode-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/Ryosuke-Asano/zai-vscode-chat/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://img.shields.io/npm/v/zai-vscode-chat.svg)](https://www.npmjs.com/package/zai-vscode-chat)
+
 A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-4.7, GLM-4.7 Flash, GLM-4.6V) into GitHub Copilot Chat using the Language Model Chat Provider API.
 
 ## Features

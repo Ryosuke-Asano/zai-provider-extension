@@ -71,12 +71,12 @@ export type LanguageModelInputPart =
 
 export class LanguageModelChatMessage {
   role: LanguageModelChatMessageRole;
-  content: Array<LanguageModelInputPart>;
+  content: Array<string | LanguageModelInputPart>;
   name: string | undefined;
 
   constructor(
     role: LanguageModelChatMessageRole,
-    content: string | Array<LanguageModelInputPart>,
+    content: string | Array<string | LanguageModelInputPart>,
     name?: string
   ) {
     this.role = role;
@@ -88,7 +88,7 @@ export class LanguageModelChatMessage {
   }
 
   static User(
-    content: string | LanguageModelInputPart[],
+    content: string | string[] | LanguageModelInputPart[],
     name?: string
   ): LanguageModelChatMessage {
     return new LanguageModelChatMessage(

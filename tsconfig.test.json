@@ -6,7 +6,11 @@
             "vscode": [
                 "__mocks__/vscode.ts"
             ]
-        }
+        },
+        "types": [
+            "node",
+            "jest"
+        ]
     },
     "include": [
         "src/**/*",
