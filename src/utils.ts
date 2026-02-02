@@ -251,7 +251,8 @@ export function validateRequest(
  * Estimate token count (rough approximation: ~4 chars per token)
  */
 export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
+  const result = Math.ceil(text.length / 4);
+  return result;
 }
 
 /**
@@ -263,11 +264,18 @@ export function estimateMessagesTokens(
   let total = 0;
   for (const m of messages) {
     for (const part of m.content) {
-      if ((part as any).type === "text") {
+      // Check if part is LanguageModelTextPart (has 'value' property)
+      if ("value" in part) {
         total += estimateTokens((part as any).value);
-      } else if ((part as any).type === "image") {
-        // Rough estimate: images typically cost ~1000-2000 tokens
-        total += 1500;
+      } else if ("mimeType" in part) {
+        // Check if it's an image data part
+        if (
+          (part as any).mimeType &&
+          (part as any).mimeType.startsWith("image/")
+        ) {
+          // Rough estimate: images typically cost ~1000-2000 tokens
+          total += 1500;
+        }
       }
     }
   }
