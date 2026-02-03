@@ -12,7 +12,6 @@ import {
   ZaiChatResponse,
   ZaiStreamChoice,
   ZaiStreamResponse,
-  ZaiModelInfo,
   ZAI_MODELS,
   ZAI_MCP_SERVERS,
 } from "../src/types";
@@ -426,7 +425,7 @@ describe("ZAI_MCP_SERVERS", () => {
   });
 
   it("should HTTP servers have url property", () => {
-    Object.entries(ZAI_MCP_SERVERS).forEach(([name, server]) => {
+    Object.entries(ZAI_MCP_SERVERS).forEach(([_name, server]) => {
       if (server.type === "http") {
         expect(server.url).toBeDefined();
         expect(typeof server.url).toBe("string");

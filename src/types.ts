@@ -3,6 +3,18 @@
  * Based on OpenAI-compatible API format
  */
 
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | Json[]
+  | { [k: string]: Json };
+export type JsonObject = { [k: string]: Json };
+
+/**
+ * Content part for chat messages
+ */
 export interface ZaiContentPart {
   type: "text" | "image_url";
   text?: string;
@@ -21,6 +33,8 @@ export interface ZaiChatMessage {
 
 export interface ZaiToolCall {
   id: string;
+  /** Optional index used in streaming tool call deltas */
+  index?: number;
   type: "function";
   function: {
     name: string;
@@ -33,7 +47,7 @@ export interface ZaiTool {
   function: {
     name: string;
     description?: string;
-    parameters?: Record<string, unknown>;
+    parameters?: JsonObject;
   };
 }
 
@@ -138,6 +152,22 @@ export const ZAI_MCP_SERVERS: Record<string, ZaiMcpServer> = {
     url: "https://api.z.ai/api/mcp/vision/mcp",
   },
 };
+
+/**
+ * A strongly-typed request body used for Z.ai Chat API requests
+ */
+export interface ZaiRequestBody {
+  model: string;
+  messages: ZaiChatMessage[];
+  stream?: boolean;
+  max_tokens?: number;
+  temperature?: number;
+  thinking?: { type: string };
+  stop?: string | string[];
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  tools?: ZaiTool[];
+}
 
 /**
  * Available Z.ai models configuration

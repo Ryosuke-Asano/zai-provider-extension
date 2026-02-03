@@ -1,5 +1,189 @@
 import * as vscode from "vscode";
-import type { ZaiChatMessage, ZaiTool, ZaiContentPart } from "./types";
+import type {
+  ZaiChatMessage,
+  ZaiTool,
+  ZaiContentPart,
+  Json,
+  JsonObject,
+} from "./types";
+
+/**
+ * Legacy part shape used by mocks or older API shapes
+ */
+export interface LegacyPart {
+  type?: string;
+  mimeType?: string;
+  bytes?: Uint8Array | number[];
+  data?: Uint8Array | number[];
+  buffer?: ArrayBuffer;
+  value?: string;
+  callId?: string;
+  input?: Json | JsonObject | Json[];
+  arguments?: string | JsonObject;
+  name?: string;
+  [key: string]: Json | Uint8Array | number[] | ArrayBuffer | undefined;
+}
+
+/**
+ * Helper: extract text value from a LanguageModelTextPart or plain object
+ */
+export function getTextPartValue(
+  part: vscode.LanguageModelInputPart | LegacyPart
+): string | undefined {
+  if (part instanceof vscode.LanguageModelTextPart) {
+    return part.value;
+  }
+  if (typeof part === "object" && part !== null) {
+    const p = part as { value?: string };
+    if (typeof p.value === "string") {
+      return p.value;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Helper: extract image bytes and mime type from a variety of part shapes
+ */
+export function extractImageData(
+  part: vscode.LanguageModelInputPart | LegacyPart
+): { mimeType: string; data: Uint8Array } | undefined {
+  if (part instanceof vscode.LanguageModelDataPart) {
+    if (
+      typeof part.mimeType === "string" &&
+      part.mimeType.startsWith("image/") &&
+      part.data &&
+      part.data.length > 0
+    ) {
+      return { mimeType: part.mimeType, data: part.data };
+    }
+    return undefined;
+  }
+
+  if (typeof part !== "object" || part === null) {
+    return undefined;
+  }
+
+  const p = part as LegacyPart;
+
+  if (p.type === "image") {
+    const mimeType = typeof p.mimeType === "string" ? p.mimeType : "image/png";
+    if (p.bytes instanceof Uint8Array && p.bytes.length > 0) {
+      return { mimeType, data: p.bytes };
+    }
+    if (p.data instanceof Uint8Array && p.data.length > 0) {
+      return { mimeType, data: p.data };
+    }
+    if (p.buffer instanceof ArrayBuffer && p.buffer.byteLength > 0) {
+      return { mimeType, data: new Uint8Array(p.buffer) };
+    }
+    if (Array.isArray(p.bytes) && p.bytes.length > 0) {
+      return { mimeType, data: new Uint8Array(p.bytes) };
+    }
+    if (Array.isArray(p.data) && p.data.length > 0) {
+      return { mimeType, data: new Uint8Array(p.data) };
+    }
+    return undefined;
+  }
+
+  if (typeof p.mimeType === "string" && p.mimeType.startsWith("image/")) {
+    const mimeType = p.mimeType;
+    if (p.bytes instanceof Uint8Array && p.bytes.length > 0) {
+      return { mimeType, data: p.bytes };
+    }
+    if (p.data instanceof Uint8Array && p.data.length > 0) {
+      return { mimeType, data: p.data };
+    }
+    if (p.buffer instanceof ArrayBuffer && p.buffer.byteLength > 0) {
+      return { mimeType, data: new Uint8Array(p.buffer) };
+    }
+    if (Array.isArray(p.bytes) && p.bytes.length > 0) {
+      return { mimeType, data: new Uint8Array(p.bytes) };
+    }
+    if (Array.isArray(p.data) && p.data.length > 0) {
+      return { mimeType, data: new Uint8Array(p.data) };
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Helper: extract tool call info from a part
+ */
+export function getToolCallInfo(
+  part: vscode.LanguageModelInputPart | LegacyPart
+): { id?: string; name?: string; args?: Json | string } | undefined {
+  if (part instanceof vscode.LanguageModelToolCallPart) {
+    return { id: part.callId, name: part.name, args: part.input as Json };
+  }
+  if (typeof part === "object" && part !== null) {
+    const p = part as LegacyPart;
+    if (p.callId || p.name || p.type === "tool_call") {
+      return {
+        id: p.callId,
+        name: p.name,
+        args: (p.input ?? p.arguments) as Json | string,
+      };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Helper: extract tool result textual representation from a part
+ */
+export function getToolResultTexts(
+  part: vscode.LanguageModelInputPart | LegacyPart
+): string[] {
+  const results: string[] = [];
+
+  if (part instanceof vscode.LanguageModelToolResultPart) {
+    for (const inner of part.content) {
+      const tv = getTextPartValue(
+        inner as vscode.LanguageModelInputPart | LegacyPart
+      );
+      if (tv !== undefined) {
+        results.push(tv);
+        continue;
+      }
+      try {
+        if (
+          typeof (inner as { valueOf?: () => string | object }).valueOf ===
+          "function"
+        ) {
+          const v = (inner as { valueOf: () => string | object }).valueOf();
+          results.push(typeof v === "string" ? v : JSON.stringify(v));
+        } else {
+          results.push(JSON.stringify(inner));
+        }
+      } catch {
+        results.push(String(inner));
+      }
+    }
+    return results;
+  }
+
+  if (typeof part === "object" && part !== null) {
+    const p = part as LegacyPart;
+    if (typeof p.value === "string") {
+      results.push(p.value);
+    } else if (
+      typeof (p as { valueOf?: () => string | object }).valueOf === "function"
+    ) {
+      try {
+        const v = (p as { valueOf: () => string | object }).valueOf();
+        results.push(typeof v === "string" ? v : JSON.stringify(v));
+      } catch {
+        results.push(JSON.stringify(p));
+      }
+    } else {
+      results.push(JSON.stringify(p));
+    }
+  }
+
+  return results;
+}
 
 /**
  * Convert VSCode LanguageModelChatMessage to Z.ai/OpenAI format
@@ -20,172 +204,98 @@ export function convertMessages(
       content: "",
     };
 
-    // Check if message contains image parts (for Vision models)
-    // LanguageModelImagePart may be available as "image" in content
-    const imageParts = msg.content.filter(
-      (part) =>
-        (part as any).type === "image" ||
-        part.constructor.name === "LanguageModelImagePart"
-    ) as any[];
+    // Collect text parts
+    const textParts: string[] = [];
+    for (const part of msg.content) {
+      const tv = getTextPartValue(part);
+      if (tv !== undefined) {
+        textParts.push(tv);
+      }
+    }
 
-    // Also check for LanguageModelDataPart with image mimeType (new API from GitHub issue #245104)
-    const dataParts = msg.content.filter(
-      (part) =>
-        (part as any).mimeType && (part as any).mimeType.startsWith("image/")
-    ) as any[];
-
-    // Extract content from message parts - check for 'value' property instead of type
-    const textParts = msg.content.filter(
-      (part) => (part as any).value !== undefined
-    ) as any[];
-
-    // If we have images, use content array format (for Vision)
-    if (imageParts.length > 0 || dataParts.length > 0) {
-      const contentParts: ZaiContentPart[] = [];
-
-      // Add text content
-      const textContent = textParts.map((part) => part.value).join("");
-      if (textContent) {
-        contentParts.push({
-          type: "text",
-          text: textContent,
+    // Collect images
+    const imageParts: ZaiContentPart[] = [];
+    for (const part of msg.content) {
+      const img = extractImageData(part);
+      if (!img) continue;
+      if (img.data && img.data.length > 0) {
+        const base64Data = Buffer.from(img.data).toString("base64");
+        imageParts.push({
+          type: "image_url",
+          image_url: { url: `data:${img.mimeType};base64,${base64Data}` },
         });
-      }
-
-      // Add image content
-      for (const imgPart of imageParts) {
-        // Convert image to base64 data URL
-        const mimeType = imgPart.mimeType ?? "image/png";
-
-        // Try to get image bytes from different properties
-        let imageData: Uint8Array | undefined;
-
-        if (imgPart.bytes) {
-          imageData = imgPart.bytes;
-        } else if ((imgPart as any).data) {
-          imageData = (imgPart as any).data;
-        } else if ((imgPart as any).buffer) {
-          imageData = new Uint8Array((imgPart as any).buffer);
-        }
-
-        if (imageData && imageData.length > 0) {
-          const base64Data = Buffer.from(imageData).toString("base64");
-          contentParts.push({
-            type: "image_url",
-            image_url: {
-              url: `data:${mimeType};base64,${base64Data}`,
-            },
-          });
-        } else {
-          // No actual image data available - this is expected with VSCode's ephemeral references
-          // We'll skip this image since we can't access the actual file
-          console.warn(
-            "[Z.ai] Image part has no accessible byte data:",
-            imgPart
-          );
-        }
-      }
-      // Add image content from LanguageModelDataPart (new API from GitHub issue #245104)
-      for (const dataPart of dataParts) {
-        const mimeType = dataPart.mimeType ?? "image/png";
-        let imageData: Uint8Array | undefined;
-
-        // Try to get image bytes from different properties
-        if (dataPart.bytes) {
-          imageData = dataPart.bytes;
-        } else if ((dataPart as any).data) {
-          imageData = (dataPart as any).data;
-        }
-
-        if (imageData && imageData.length > 0) {
-          const base64Data = Buffer.from(imageData).toString("base64");
-          contentParts.push({
-            type: "image_url",
-            image_url: {
-              url: `data:${mimeType};base64,${base64Data}`,
-            },
-          });
-        } else {
-          console.warn(
-            "[Z.ai] LanguageModelDataPart has no accessible byte data:",
-            dataPart
-          );
-        }
-      }
-      // Only use content array format if we have valid images
-      if (contentParts.length > 1) {
-        // 1 because we always have text
-        zaiMsg.content = contentParts;
       } else {
-        // No valid images, fall back to text-only
-        const textContent = textParts.map((part) => part.value).join("");
-        zaiMsg.content = textContent || "(empty message)";
+        console.warn("[Z.ai] Image part has no accessible byte data:", part);
       }
+    }
+
+    if (imageParts.length > 0) {
+      const contentParts: ZaiContentPart[] = [];
+      const textContent = textParts.join("");
+      if (textContent) {
+        contentParts.push({ type: "text", text: textContent });
+      }
+      contentParts.push(...imageParts);
+      zaiMsg.content = contentParts;
     } else {
-      // Simple text-only message
-      const textContent = textParts.map((part) => part.value).join("");
-      // Ensure content is never empty - Z.ai API rejects empty content
+      const textContent = textParts.join("");
       zaiMsg.content = textContent || "(empty message)";
     }
 
-    // Handle tool calls if present
-    const toolCallParts = msg.content.filter(
-      (part) =>
-        (part as any).type === "tool_call" ||
-        part.constructor.name === "LanguageModelToolCallPart" ||
-        part.constructor.name === "$a"
-    ) as any[];
+    // Handle tool calls
+    const toolCalls = msg.content
+      .map((p) => getToolCallInfo(p))
+      .filter(
+        (t): t is { id?: string; name?: string; args?: Json | string } => !!t
+      );
 
-    if (toolCallParts.length > 0) {
-      zaiMsg.tool_calls = toolCallParts.map((tc: any) => ({
-        id: tc.callId,
+    if (toolCalls.length > 0) {
+      zaiMsg.tool_calls = toolCalls.map((tc) => ({
+        id: tc.id ?? `call_${Math.random().toString(36).slice(2, 10)}`,
         type: "function",
         function: {
-          name: tc.name,
-          arguments: JSON.stringify(tc.input || tc.arguments),
+          name: tc.name ?? "unknown",
+          arguments: JSON.stringify(tc.args ?? {}),
         },
       }));
     }
 
-    // Handle tool result if present
-    const toolResultParts = msg.content.filter(
-      (part) =>
-        (part as any).type === "tool_result" ||
-        part.constructor.name === "LanguageModelToolResultPart" ||
-        part.constructor.name === "nl"
-    ) as any[];
-
-    if (toolResultParts.length > 0) {
-      const textContent = textParts.map((part) => part.value).join("");
-      const toolResults = toolResultParts
-        .map((tr: any) => {
-          // Try different ways to extract the result value
-          if (typeof tr.value === "string") {
-            return tr.value;
-          }
-          if (typeof tr.valueOf === "function") {
-            const result = tr.valueOf();
-            if (typeof result === "string") {
-              return result;
-            }
-            return JSON.stringify(result);
-          }
-          // Fallback: stringify the whole object
-          return JSON.stringify(tr);
-        })
-        .join("\n");
-      zaiMsg.content = (textContent + "\n" + toolResults).trim();
+    // Handle tool results
+    const toolResultTexts = msg.content.flatMap((p) => getToolResultTexts(p));
+    if (toolResultTexts.length > 0) {
+      const textContent = textParts.join(" ");
+      zaiMsg.content = (textContent + "\n" + toolResultTexts.join("\n")).trim();
     }
 
-    // Set tool_call_id for tool result messages
-    if ((msg.role as any) === "tool" && toolResultParts.length > 0) {
-      zaiMsg.tool_call_id = (toolResultParts[0] as any).callId;
+    // Set tool_call_id for tool result messages (legacy support)
+    const firstToolResultCallId = getFirstToolResultCallId(
+      msg.content as Array<vscode.LanguageModelInputPart | LegacyPart>
+    );
+    if (firstToolResultCallId) {
+      zaiMsg.tool_call_id = firstToolResultCallId;
     }
 
     result.push(zaiMsg);
   }
 
   return result;
+}
+
+export function getFirstToolResultCallId(
+  parts: Array<vscode.LanguageModelInputPart | LegacyPart>
+): string | undefined {
+  for (const p of parts) {
+    if (p instanceof vscode.LanguageModelToolResultPart) {
+      return p.callId;
+    }
+    if (typeof p === "object" && p !== null) {
+      const lp = p as LegacyPart;
+      if (typeof lp.callId === "string") {
+        return lp.callId;
+      }
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -206,7 +316,7 @@ export function convertTools(
     function: {
       name: tool.name,
       description: tool.description,
-      parameters: tool.inputSchema as Record<string, unknown>,
+      parameters: tool.inputSchema as JsonObject,
     },
   }));
 
@@ -214,13 +324,16 @@ export function convertTools(
 }
 
 /**
- * Parse JSON with error handling
+ * Parse JSON with error handling (generic)
  */
-export function tryParseJSONObject(
+export function tryParseJSONObject<T extends Json = Json>(
   text: string
-): { ok: true; value: unknown } | { ok: false; error: string } {
+): { ok: true; value: T } | { ok: false; error: string } {
+  if (!text || !text.trim()) {
+    return { ok: false, error: "Empty string" };
+  }
   try {
-    const value = JSON.parse(text);
+    const value = JSON.parse(text) as T;
     return { ok: true, value };
   } catch (error) {
     return {
@@ -234,7 +347,12 @@ export function tryParseJSONObject(
  * Validate chat request
  */
 export function validateRequest(
-  messages: readonly vscode.LanguageModelChatMessage[]
+  messages:
+    | readonly vscode.LanguageModelChatMessage[]
+    | readonly {
+        role: string;
+        content: (vscode.LanguageModelInputPart | LegacyPart)[];
+      }[]
 ): void {
   if (!messages || messages.length === 0) {
     throw new Error("Messages array is empty");
@@ -259,23 +377,23 @@ export function estimateTokens(text: string): number {
  * Estimate message array tokens
  */
 export function estimateMessagesTokens(
-  messages: readonly vscode.LanguageModelChatMessage[]
+  messages:
+    | readonly vscode.LanguageModelChatMessage[]
+    | readonly {
+        content: (vscode.LanguageModelInputPart | LegacyPart)[];
+      }[]
 ): number {
   let total = 0;
   for (const m of messages) {
     for (const part of m.content) {
-      // Check if part is LanguageModelTextPart (has 'value' property)
-      if ("value" in part) {
-        total += estimateTokens((part as any).value);
-      } else if ("mimeType" in part) {
-        // Check if it's an image data part
-        if (
-          (part as any).mimeType &&
-          (part as any).mimeType.startsWith("image/")
-        ) {
-          // Rough estimate: images typically cost ~1000-2000 tokens
-          total += 1500;
-        }
+      const tv = getTextPartValue(part);
+      if (tv !== undefined) {
+        total += estimateTokens(tv);
+        continue;
+      }
+      const img = extractImageData(part);
+      if (img) {
+        total += 1500; // Rough estimate
       }
     }
   }

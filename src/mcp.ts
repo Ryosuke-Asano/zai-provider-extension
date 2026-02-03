@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { ZaiMcpServer } from "./types";
+import type { ZaiMcpServer, JsonObject } from "./types";
 
 /**
  * MCP Tool definition
@@ -7,7 +7,7 @@ import type { ZaiMcpServer } from "./types";
 export interface McpTool {
   name: string;
   description?: string;
-  inputSchema: Record<string, unknown>;
+  inputSchema: JsonObject;
 }
 
 /**
@@ -48,7 +48,7 @@ export class ZaiMcpClient {
   async callTool(
     serverName: string,
     toolName: string,
-    args: Record<string, unknown>
+    args: JsonObject
   ): Promise<McpToolResult> {
     if (!(await this.ensureApiKey())) {
       throw new Error("Z.ai API key not found");
@@ -74,7 +74,7 @@ export class ZaiMcpClient {
   private async callHttpTool(
     server: ZaiMcpServer,
     toolName: string,
-    args: Record<string, unknown>
+    args: JsonObject
   ): Promise<McpToolResult> {
     const url = new URL(server.url!);
     url.pathname = `/tools/${toolName}`;
@@ -240,46 +240,42 @@ export class ZaiMcpClient {
       throw new Error("Z.ai API key not found");
     }
 
-    try {
-      // Call Vision API directly via Z.ai chat completions endpoint
-      const response = await fetch(
-        "https://api.z.ai/api/coding/paas/v4/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "glm-4.6v", // Use Vision model for image analysis
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: prompt },
-                  { type: "image_url", image_url: { url: imageData } },
-                ],
-              },
-            ],
-            max_tokens: 2000,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Vision API error: ${response.status} ${errorText}`);
+    // Call Vision API directly via Z.ai chat completions endpoint
+    const response = await fetch(
+      "https://api.z.ai/api/coding/paas/v4/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "glm-4.6v", // Use Vision model for image analysis
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: imageData } },
+              ],
+            },
+          ],
+          max_tokens: 2000,
+        }),
       }
+    );
 
-      const data = (await response.json()) as {
-        choices: Array<{ message: { content: string } }>;
-      };
-
-      const result =
-        data.choices?.[0]?.message?.content ?? "Failed to analyze image";
-      return result;
-    } catch (error) {
-      throw error;
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Vision API error: ${response.status} ${errorText}`);
     }
+
+    const data = (await response.json()) as {
+      choices: Array<{ message: { content: string } }>;
+    };
+
+    const result =
+      data.choices?.[0]?.message?.content ?? "Failed to analyze image";
+    return result;
   }
 }

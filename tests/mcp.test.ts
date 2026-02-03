@@ -29,29 +29,38 @@ describe("ZaiMcpClient", () => {
   });
 
   describe("ensureApiKey", () => {
-    it("should load API key from secrets", async () => {
+    it("should load API key from secrets via public listTools", async () => {
       (secrets.get as jest.Mock).mockResolvedValue("test-api-key");
 
-      // Access private method via any for testing
-      const result = await (client as any).ensureApiKey();
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ tools: [] }),
+      });
 
-      expect(result).toBe(true);
+      const result = await client.listTools("vision-mcp");
+
+      expect(result).toEqual([]);
       expect(secrets.get).toHaveBeenCalledWith("zai.apiKey");
     });
 
-    it("should return false when API key is not found", async () => {
+    it("should throw when API key is not found", async () => {
       (secrets.get as jest.Mock).mockResolvedValue(undefined);
 
-      const result = await (client as any).ensureApiKey();
-
-      expect(result).toBe(false);
+      await expect(client.listTools("vision-mcp")).rejects.toThrow(
+        "Z.ai API key not found"
+      );
     });
 
-    it("should cache API key after first load", async () => {
+    it("should cache API key after first load (two public calls)", async () => {
       (secrets.get as jest.Mock).mockResolvedValue("test-api-key");
 
-      await (client as any).ensureApiKey();
-      await (client as any).ensureApiKey(); // Second call
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ tools: [] }),
+      });
+
+      await client.listTools("vision-mcp");
+      await client.listTools("vision-mcp"); // Second call
 
       expect(secrets.get).toHaveBeenCalledTimes(1); // Should not call again
     });
@@ -307,7 +316,10 @@ describe("ZaiMcpClient", () => {
         json: async () => mockApiResponse,
       });
 
-      const result = await (client as any).analyzeImage(
+      const internal = client as {
+        analyzeImage(imageData: string, prompt: string): Promise<string>;
+      };
+      const result = await internal.analyzeImage(
         "data:image/png;base64,...",
         "Describe this image"
       );
@@ -326,8 +338,11 @@ describe("ZaiMcpClient", () => {
         text: async () => "Server error",
       });
 
+      const internal = client as {
+        analyzeImage(imageData: string, prompt: string): Promise<string>;
+      };
       await expect(
-        (client as any).analyzeImage("data:image/png;base64,...", "Describe")
+        internal.analyzeImage("data:image/png;base64,...", "Describe")
       ).rejects.toThrow("Vision API error: 500 Server error");
     });
 
@@ -346,7 +361,10 @@ describe("ZaiMcpClient", () => {
       });
 
       const imageUrl = "data:image/png;base64,ABC123";
-      await (client as any).analyzeImage(imageUrl, "Describe");
+      const internal = client as {
+        analyzeImage(imageData: string, prompt: string): Promise<string>;
+      };
+      await internal.analyzeImage(imageUrl, "Describe");
 
       const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
@@ -354,7 +372,7 @@ describe("ZaiMcpClient", () => {
       expect(body.messages).toBeDefined();
       expect(body.messages[0].content).toBeDefined();
       const imageContent = body.messages[0].content.find(
-        (c: any) => c.type === "image_url"
+        (c: { type?: string }) => c.type === "image_url"
       );
       expect(imageContent?.image_url?.url).toBe(imageUrl);
     });
@@ -374,13 +392,16 @@ describe("ZaiMcpClient", () => {
       });
 
       const prompt = "Describe this cat in detail";
-      await (client as any).analyzeImage("data:image/png;base64,...", prompt);
+      const internal = client as {
+        analyzeImage(imageData: string, prompt: string): Promise<string>;
+      };
+      await internal.analyzeImage("data:image/png;base64,...", prompt);
 
       const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const messages = body.messages;
       const promptContent = messages[0].content.find(
-        (c: any) => c.type === "text"
+        (c: { type?: string }) => c.type === "text"
       );
       expect(promptContent?.text).toBe(prompt);
     });

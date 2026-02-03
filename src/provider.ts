@@ -9,13 +9,21 @@ import {
   Progress,
 } from "vscode";
 
-import type { ZaiModelInfo, ZaiStreamResponse } from "./types";
+import type {
+  ZaiModelInfo,
+  ZaiStreamResponse,
+  Json,
+  ZaiRequestBody,
+} from "./types";
+import { ZAI_MODELS } from "./types";
 import {
   convertMessages,
   convertTools,
   tryParseJSONObject,
   validateRequest,
   estimateMessagesTokens,
+  getTextPartValue,
+  extractImageData,
 } from "./utils";
 import { ZaiMcpClient } from "./mcp";
 
@@ -127,10 +135,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
    * Check if model supports vision natively
    */
   private modelSupportsVision(modelId: string): boolean {
-    const { ZAI_MODELS: models } = require("./types") as {
-      ZAI_MODELS: ZaiModelInfo[];
-    };
-    const modelInfo = models.find((m) => m.id === modelId);
+    const modelInfo = ZAI_MODELS.find((m) => m.id === modelId);
     return modelInfo?.supportsVision ?? false;
   }
 
@@ -155,96 +160,61 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     const processedMessages: LanguageModelChatMessage[] = [];
 
     for (const msg of messages) {
-      // Check for image parts (both old LanguageModelImagePart and new LanguageModelDataPart)
-      const imageParts = msg.content.filter(
-        (part) => (part as any).type === "image"
-      ) as any[];
-      const dataParts = msg.content.filter(
-        (part) =>
-          (part as any).mimeType && (part as any).mimeType.startsWith("image/")
-      ) as any[];
+      // Extract text from message
+      const textParts: string[] = [];
+      for (const part of msg.content) {
+        const v = getTextPartValue(part);
+        if (v !== undefined) {
+          textParts.push(v);
+        }
+      }
+      const userPrompt = textParts.join(" ");
 
-      if (imageParts.length === 0 && dataParts.length === 0) {
+      // Extract image data parts (supports DataPart and legacy shapes)
+      const images: Array<{ mimeType: string; data: Uint8Array }> = [];
+      for (const part of msg.content) {
+        const img = extractImageData(part);
+        if (img) {
+          images.push(img);
+        }
+      }
+
+      if (images.length === 0) {
         // No images, keep message as-is
         processedMessages.push(msg);
         continue;
       }
 
-      // Extract text from message
-      const textParts = msg.content.filter(
-        (part) => (part as any).type === "text"
-      ) as any[];
-      const userPrompt = textParts.map((p) => p.value).join(" ");
-
-      // Process each image (LanguageModelImagePart)
-      for (const imgPart of imageParts) {
+      // Analyze images for this message
+      const thisMessageDescriptions: string[] = [];
+      for (const img of images) {
         if (token.isCancellationRequested) {
           throw new Error("Cancelled");
         }
 
-        if (!imgPart.bytes) {
-          console.warn("[Z.ai] Image part has no byte data, skipping");
-          continue;
-        }
+        const base64Data = Buffer.from(img.data).toString("base64");
+        const imageDataUrl = `data:${img.mimeType};base64,${base64Data}`;
 
-        // Convert image to base64 data URL
-        const mimeType = imgPart.mimeType ?? "image/png";
-        const base64Data = Buffer.from(imgPart.bytes).toString("base64");
-        const imageDataUrl = `data:${mimeType};base64,${base64Data}`;
-
-        // Use Vision MCP to analyze image
         const analysisPrompt = userPrompt || "Describe this image in detail.";
         const description = await this._mcpClient.analyzeImage(
           imageDataUrl,
           analysisPrompt
         );
-        imageDescriptions.push(description);
-      }
-
-      // Process each data part (LanguageModelDataPart)
-      for (const dataPart of dataParts) {
-        if (token.isCancellationRequested) {
-          throw new Error("Cancelled");
-        }
-
-        // Try to get byte data from data part
-        let imageData: Uint8Array | undefined;
-        if (dataPart.bytes) {
-          imageData = dataPart.bytes;
-        } else if ((dataPart as any).data) {
-          imageData = (dataPart as any).data;
-        }
-
-        if (!imageData || imageData.length === 0) {
-          console.warn("[Z.ai] DataPart has no accessible byte data, skipping");
-          continue;
-        }
-
-        // Convert image to base64 data URL
-        const mimeType = dataPart.mimeType ?? "image/png";
-        const base64Data = Buffer.from(imageData).toString("base64");
-        const imageDataUrl = `data:${mimeType};base64,${base64Data}`;
-
-        // Use Vision MCP to analyze image
-        const analysisPrompt = userPrompt || "Describe this image in detail.";
-        const description = await this._mcpClient.analyzeImage(
-          imageDataUrl,
-          analysisPrompt
-        );
+        thisMessageDescriptions.push(description);
         imageDescriptions.push(description);
       }
 
       // Replace image with text description for non-Vision model
       const newContent: vscode.LanguageModelTextPart[] = [];
       for (const textPart of textParts) {
-        newContent.push(new vscode.LanguageModelTextPart(textPart.value));
+        newContent.push(new vscode.LanguageModelTextPart(textPart));
       }
 
-      // Add image descriptions as text
-      if (imageDescriptions.length > 0) {
+      // Add image descriptions as text (only those for this message)
+      if (thisMessageDescriptions.length > 0) {
         newContent.push(
           new vscode.LanguageModelTextPart(
-            `\n\n[Image Analysis]:\n${imageDescriptions.join("\n\n---\n\n")}`
+            `\n\n[Image Analysis]:\n${thisMessageDescriptions.join("\n\n---\n\n")}`
           )
         );
       }
@@ -301,8 +271,11 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       // Pre-process images for non-Vision models
       // If model supports vision, we'll use the original messages directly
       // Otherwise, we'll process images and convert them to text descriptions
-      const { processedMessages, imageDescriptions } =
-        await this.processImagesForNonVisionModel(messages, model.id, token);
+      const { processedMessages } = await this.processImagesForNonVisionModel(
+        messages,
+        model.id,
+        token
+      );
 
       // Use processed messages (images converted to text for non-Vision models)
       const zaiMessages = convertMessages(processedMessages);
@@ -325,15 +298,18 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         throw new Error("Message exceeds token limit.");
       }
 
-      const requestBody: Record<string, unknown> = {
+      const mo = options.modelOptions as Record<string, Json> | undefined;
+      const maxTokensVal =
+        typeof mo?.max_tokens === "number" ? mo.max_tokens : 4096;
+      const temperatureVal =
+        typeof mo?.temperature === "number" ? mo.temperature : 0.7;
+
+      const requestBody: ZaiRequestBody = {
         model: model.id,
         messages: zaiMessages,
         stream: true,
-        max_tokens: Math.min(
-          options.modelOptions?.max_tokens || 4096,
-          model.maxOutputTokens
-        ),
-        temperature: options.modelOptions?.temperature ?? 0.7,
+        max_tokens: Math.min(maxTokensVal, model.maxOutputTokens),
+        temperature: temperatureVal,
       };
 
       // Enable thinking mode if setting is enabled
@@ -344,9 +320,13 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       }
 
       // Allow-list model options
-      if (options.modelOptions) {
-        const mo = options.modelOptions as Record<string, unknown>;
-        if (typeof mo.stop === "string" || Array.isArray(mo.stop)) {
+      if (mo) {
+        if (typeof mo.stop === "string") {
+          requestBody.stop = mo.stop;
+        } else if (
+          Array.isArray(mo.stop) &&
+          mo.stop.every((s) => typeof s === "string")
+        ) {
           requestBody.stop = mo.stop;
         }
         if (typeof mo.frequency_penalty === "number") {
@@ -415,24 +395,28 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
    * @param token A cancellation token for the request
    * @returns A promise that resolves to the number of tokens
    */
-  async provideTokenCount(
+  provideTokenCount(
     _model: LanguageModelChatInformation,
     text: string | LanguageModelChatMessage,
     _token: CancellationToken
   ): Promise<number> {
     if (typeof text === "string") {
-      return Math.ceil(text.length / 4);
+      return Promise.resolve(Math.ceil(text.length / 4));
     } else {
       let totalTokens = 0;
       for (const part of text.content) {
-        if ((part as any).type === "text") {
-          totalTokens += Math.ceil(((part as any).value as string).length / 4);
-        } else if ((part as any).type === "image") {
+        const tv = getTextPartValue(part);
+        if (tv !== undefined) {
+          totalTokens += Math.ceil(tv.length / 4);
+          continue;
+        }
+        const img = extractImageData(part);
+        if (img) {
           // Rough estimate: images typically cost ~1000-2000 tokens
           totalTokens += 1500;
         }
       }
-      return totalTokens;
+      return Promise.resolve(totalTokens);
     }
   }
 
@@ -589,7 +573,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       const toolCalls = deltaObj.tool_calls;
 
       for (const tc of toolCalls) {
-        const idx = (tc as any).index ?? 0;
+        const idx = (tc as { index?: number }).index ?? 0;
         // Ignore any further deltas for an index we've already completed
         if (this._completedToolCallIndices.has(idx)) {
           continue;
@@ -626,28 +610,29 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
    * @param index The tool call index from the stream.
    * @param progress Progress reporter for parts.
    */
-  private async tryEmitBufferedToolCall(
+  private tryEmitBufferedToolCall(
     index: number,
     progress: vscode.Progress<vscode.LanguageModelResponsePart>
   ): Promise<void> {
     const buf = this._toolCallBuffers.get(index);
     if (!buf) {
-      return;
+      return Promise.resolve();
     }
     if (!buf.name) {
-      return;
+      return Promise.resolve();
     }
-    const canParse = tryParseJSONObject(buf.args);
+    const canParse = tryParseJSONObject<Record<string, Json>>(buf.args);
     if (!canParse.ok) {
-      return;
+      return Promise.resolve();
     }
     const id = buf.id ?? `call_${Math.random().toString(36).slice(2, 10)}`;
-    const parameters = canParse.value as Record<string, unknown>;
+    const parameters = canParse.value;
     progress.report(
       new vscode.LanguageModelToolCallPart(id, buf.name, parameters)
     );
     this._toolCallBuffers.delete(index);
     this._completedToolCallIndices.add(index);
+    return Promise.resolve();
   }
 
   /**
@@ -655,15 +640,15 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
    * @param progress Progress reporter for parts.
    * @param throwOnInvalid If true, throw when a tool call has invalid JSON args.
    */
-  private async flushToolCallBuffers(
+  private flushToolCallBuffers(
     progress: vscode.Progress<vscode.LanguageModelResponsePart>,
     throwOnInvalid: boolean
   ): Promise<void> {
     if (this._toolCallBuffers.size === 0) {
-      return;
+      return Promise.resolve();
     }
     for (const [idx, buf] of Array.from(this._toolCallBuffers.entries())) {
-      const parsed = tryParseJSONObject(buf.args);
+      const parsed = tryParseJSONObject<Record<string, Json>>(buf.args);
       if (!parsed.ok) {
         if (throwOnInvalid) {
           console.error("[Z.ai Model Provider] Invalid JSON for tool call", {
@@ -677,12 +662,13 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       }
       const id = buf.id ?? `call_${Math.random().toString(36).slice(2, 10)}`;
       const name = buf.name ?? "unknown_tool";
-      const parameters = parsed.value as Record<string, unknown>;
+      const parameters = parsed.value;
       progress.report(
         new vscode.LanguageModelToolCallPart(id, name, parameters)
       );
       this._toolCallBuffers.delete(idx);
       this._completedToolCallIndices.add(idx);
     }
+    return Promise.resolve();
   }
 }

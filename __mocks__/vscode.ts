@@ -12,6 +12,8 @@ export class LanguageModelTextPart {
   constructor(public readonly value: string) {}
 }
 
+import type { Json } from "../src/types";
+
 export class LanguageModelDataPart {
   public readonly mimeType: string;
   public readonly data: Uint8Array;
@@ -25,7 +27,7 @@ export class LanguageModelDataPart {
     return new LanguageModelDataPart(data, mime);
   }
 
-  static json(value: any, mime?: string): LanguageModelDataPart {
+  static json(value: Json, mime?: string): LanguageModelDataPart {
     const text = typeof value === "string" ? value : JSON.stringify(value);
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
@@ -40,7 +42,7 @@ export class LanguageModelDataPart {
 }
 
 export class LanguageModelPromptTsxPart {
-  constructor(public readonly value: unknown) {}
+  constructor(public readonly value: Json) {}
 }
 
 export class LanguageModelToolCallPart {
@@ -58,7 +60,7 @@ export class LanguageModelToolResultPart {
       | LanguageModelTextPart
       | LanguageModelPromptTsxPart
       | LanguageModelDataPart
-      | unknown
+      | Json
     >
   ) {}
 }
@@ -71,24 +73,38 @@ export type LanguageModelInputPart =
 
 export class LanguageModelChatMessage {
   role: LanguageModelChatMessageRole;
-  content: Array<string | LanguageModelInputPart>;
+  content: LanguageModelInputPart[];
   name: string | undefined;
 
   constructor(
     role: LanguageModelChatMessageRole,
-    content: string | Array<string | LanguageModelInputPart>,
+    content: string | LanguageModelInputPart[],
     name?: string
   ) {
     this.role = role;
-    this.content =
-      typeof content === "string"
-        ? [new LanguageModelTextPart(content)]
-        : content;
     this.name = name;
+
+    // Always store as LanguageModelInputPart[] to match VSCode API
+    // If content is a string, wrap it in a LanguageModelTextPart
+    if (typeof content === "string") {
+      this.content = [new LanguageModelTextPart(content)];
+    } else if (
+      Array.isArray(content) &&
+      content.length > 0 &&
+      typeof content[0] === "string"
+    ) {
+      // Convert array of strings to array of LanguageModelTextParts
+      this.content = (content as unknown as string[]).map(
+        (s) => new LanguageModelTextPart(s)
+      );
+    } else {
+      // Array of LanguageModelInputPart or empty array
+      this.content = content as LanguageModelInputPart[];
+    }
   }
 
   static User(
-    content: string | string[] | LanguageModelInputPart[],
+    content: string | LanguageModelInputPart[],
     name?: string
   ): LanguageModelChatMessage {
     return new LanguageModelChatMessage(
@@ -137,7 +153,7 @@ export interface ProvideLanguageModelChatResponseOptions {
 export interface LanguageModelTool {
   name: string;
   description: string;
-  inputSchema: Record<string, unknown>;
+  inputSchema: Record<string, Json>;
 }
 
 // Simplified Event type for testing
@@ -147,7 +163,7 @@ export interface Event<T> {
 
 export interface CancellationToken {
   isCancellationRequested: boolean;
-  readonly onCancellationRequested: Event<unknown>;
+  readonly onCancellationRequested: Event<void>;
 }
 
 export interface Progress<T> {
