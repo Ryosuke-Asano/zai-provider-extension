@@ -4,18 +4,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm version](https://img.shields.io/npm/v/zai-vscode-chat.svg)](https://www.npmjs.com/package/zai-vscode-chat)
 
-A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-4.7, GLM-4.7 Flash, GLM-4.6V) into GitHub Copilot Chat using the Language Model Chat Provider API.
+A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-4.7, GLM-4.7 Flash) into GitHub Copilot Chat using the Language Model Chat Provider API.
 
 ## Features
 
 - **Multiple Model Support**: Access to Z.ai's latest GLM models
   - **GLM-4.7**: High-performance text model (128K context)
   - **GLM-4.7 Flash**: Fast, cost-effective model (128K context)
-  - **GLM-4.6V**: Vision-capable model (128K context)
 
 - **Tool Calling**: Full support for function calling and external tools
 - **Streaming Responses**: Real-time response streaming for better UX
-- **Vision Support**: Image analysis capabilities for all models (native for GLM-4.6V, via Vision API for others)
+- **Vision Support**: Image analysis capabilities for all models (via GLM-OCR API)
 - **Thinking Process Display**: View model's reasoning in collapsible sections (GLM-4.5/4.6/4.7)
 - **Detailed Logging**: Progress indicators for image analysis and reasoning process
 - **BYOK (Bring Your Own Key)**: Use your own Z.ai API key
@@ -54,31 +53,28 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 | ----------------- | -------------- | ---------- | ------------ | ------ | -------- |
 | **GLM-4.7**       | 128K           | 16K        | ✅           | ✅     | ✅       |
 | **GLM-4.7 Flash** | 128K           | 16K        | ✅           | ✅     | ✅       |
-| **GLM-4.6V**      | 128K           | 16K        | ✅           | ✅     | ✅       |
 
 ## Vision Support
 
-This extension now provides vision capabilities for all Z.ai models:
+This extension provides vision capabilities for all Z.ai models using the GLM-OCR API:
 
-- **GLM-4.6V**: Native vision support via LanguageModelDataPart
-- **GLM-4.7 / GLM-4.7 Flash**: Image analysis via Vision API with automatic text conversion
+- **GLM-4.7 / GLM-4.7 Flash**: Image analysis via GLM-OCR API with automatic text conversion
 
 ### How It Works
 
-1. **Native Vision (GLM-4.6V)**: When you send images with GLM-4.6V, the model directly analyzes them and includes visual context in its response.
+When you send images with Z.ai models, the extension:
 
-2. **Non-Vision Models**: When you send images with text-only models (GLM-4.7, GLM-4.7 Flash), the extension:
-   - Analyzes images using the Vision API
-   - Converts the analysis to detailed text descriptions
-   - Includes these descriptions in the chat context
-   - The model then responds based on the image descriptions
+1. Sends images to the GLM-OCR layout parsing API
+2. Converts the analysis to detailed text descriptions (including structured content like charts, tables, and documents)
+3. Includes these descriptions in the chat context
+4. The model then responds based on the image descriptions
 
 ### Developer Console Logs
 
 When images are being analyzed, you can see detailed progress logs in the VS Code Developer Tools console:
 
 - 🖼️ Starting image analysis...
-- 📡 Sending request to Vision API...
+- 📡 Sending request to GLM-OCR API...
 - ⏱️ Response received with timing
 - ✅ Analysis completed with response length and total time
 - ❌ Error information if analysis fails
@@ -115,6 +111,7 @@ You can configure the thinking display behavior in VS Code settings:
   - When `false`: Hides the thinking process, showing only the final answer
 
 To change this setting:
+
 1. Open VS Code Settings (`Cmd+,` or `Ctrl+,`)
 2. Search for "zai.enableThinking"
 3. Toggle the setting on or off

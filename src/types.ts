@@ -198,6 +198,6 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     contextWindow: 128000,
     maxOutput: 16000,
     supportsTools: true,
-    supportsVision: true, // Enabled to support image input via LanguageModelDataPart
+    supportsVision: true, // Native vision model
   },
 ];

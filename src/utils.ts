@@ -48,16 +48,15 @@ export function getTextPartValue(
 export function extractImageData(
   part: vscode.LanguageModelInputPart | LegacyPart
 ): { mimeType: string; data: Uint8Array } | undefined {
-  if (part instanceof vscode.LanguageModelDataPart) {
-    if (
-      typeof part.mimeType === "string" &&
-      part.mimeType.startsWith("image/") &&
-      part.data &&
-      part.data.length > 0
-    ) {
-      return { mimeType: part.mimeType, data: part.data };
-    }
-    return undefined;
+  const dataPart = part as { mimeType?: unknown; data?: unknown } | null;
+  if (
+    dataPart &&
+    typeof dataPart.mimeType === "string" &&
+    dataPart.mimeType.startsWith("image/") &&
+    dataPart.data instanceof Uint8Array &&
+    dataPart.data.length > 0
+  ) {
+    return { mimeType: dataPart.mimeType, data: dataPart.data };
   }
 
   if (typeof part !== "object" || part === null) {

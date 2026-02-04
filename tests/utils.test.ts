@@ -214,7 +214,7 @@ describe("estimateMessagesTokens", () => {
     expect(tokens).toBe(Math.ceil(14 / 4)); // 14 chars total / 4 = 3.5 -> 4
   });
 
-  it.skip("should estimate tokens for messages with images", () => {
+  it("should estimate tokens for messages with images", () => {
     // Create a mock image part
     const mockImagePart = new vscode.LanguageModelDataPart(
       new Uint8Array([1, 2, 3, 4]),
@@ -249,7 +249,7 @@ describe("estimateMessagesTokens", () => {
     expect(tokens).toBe(0);
   });
 
-  it.skip("should estimate tokens correctly for multiple messages with mixed content", () => {
+  it("should estimate tokens correctly for multiple messages with mixed content", () => {
     // Create a mock image part
     const mockImagePart = new vscode.LanguageModelDataPart(
       new Uint8Array([1, 2, 3, 4]),

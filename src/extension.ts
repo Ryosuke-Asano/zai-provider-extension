@@ -2,6 +2,9 @@ import * as vscode from "vscode";
 import packageJson from "../package.json";
 import { ZaiChatModelProvider } from "./provider";
 
+// Global provider reference for API key management
+let _provider: ZaiChatModelProvider | null = null;
+
 export function activate(context: vscode.ExtensionContext) {
   // Build a descriptive User-Agent to help quantify API usage
   const extVersion = (packageJson as { version?: string }).version ?? "unknown";
@@ -10,9 +13,16 @@ export function activate(context: vscode.ExtensionContext) {
   const ua = `zai-vscode-chat/${extVersion} VSCode/${vscodeVersion}`;
 
   const provider = new ZaiChatModelProvider(context.secrets, ua);
+  _provider = provider;
 
   // Register the Z.ai provider under the vendor id used in package.json
-  vscode.lm.registerLanguageModelChatProvider("zai", provider);
+  const registration = vscode.lm.registerLanguageModelChatProvider(
+    "zai",
+    provider
+  );
+  context.subscriptions.push(registration);
+
+  console.log("[Z.ai Provider] Z.ai provider registered successfully");
 
   // Management command to configure API key
   context.subscriptions.push(
@@ -38,6 +48,8 @@ export function activate(context: vscode.ExtensionContext) {
       }
       await context.secrets.store("zai.apiKey", apiKey.trim());
       vscode.window.showInformationMessage("Z.ai API key saved.");
+      // Notify VS Code that the list of available models has changed
+      _provider?.fireModelInfoChanged();
     })
   );
 
@@ -46,4 +58,5 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   console.log("[Z.ai Provider] Extension deactivated");
+  _provider = null;
 }

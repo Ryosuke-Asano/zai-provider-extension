@@ -7,6 +7,9 @@ import {
   ProvideLanguageModelChatResponseOptions,
   LanguageModelResponsePart,
   Progress,
+  PrepareLanguageModelChatModelOptions,
+  EventEmitter,
+  Event,
 } from "vscode";
 
 import type {
@@ -51,6 +54,25 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   /** Buffer for reasoning content from thinking mode */
   private _reasoningContentBuffer = "";
 
+  /** Debug counter */
+  private _debugCallCount = 0;
+
+  /** Event emitter for model information changes */
+  private readonly _onDidChangeLanguageModelChatInformation =
+    new EventEmitter<void>();
+
+  /** Event that fires when available language models change */
+  readonly onDidChangeLanguageModelChatInformation: Event<void> =
+    this._onDidChangeLanguageModelChatInformation.event;
+
+  /**
+   * Fire the onDidChangeLanguageModelChatInformation event
+   * Call this when the list of available models changes
+   */
+  fireModelInfoChanged(): void {
+    this._onDidChangeLanguageModelChatInformation.fire();
+  }
+
   /**
    * Format reasoning content with proper markdown formatting.
    * Each line is prefixed with '> ' for quote block display.
@@ -71,7 +93,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     return `${header}\n>\n${quotedLines}\n\n---\n\n`;
   }
 
-  /** MCP client for Vision and other tools */
+  /** MCP client for GLM-OCR image processing and other tools */
   private _mcpClient: ZaiMcpClient;
 
   /**
@@ -101,33 +123,50 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
    * @returns A promise that resolves to the list of available language models
    */
   async provideLanguageModelChatInformation(
-    _options: { silent: boolean },
+    options: PrepareLanguageModelChatModelOptions,
     _token: CancellationToken
   ): Promise<LanguageModelChatInformation[]> {
-    const apiKey = await this.ensureApiKey(_options.silent);
+    this._debugCallCount++;
+    console.log("[Z.ai Provider] provideLanguageModelChatInformation called", {
+      silent: options.silent,
+      callCount: this._debugCallCount,
+      timestamp: new Date().toISOString(),
+    });
+    const apiKey = await this.ensureApiKey(options.silent);
     if (!apiKey) {
+      console.log("[Z.ai Provider] No API key, returning empty list");
       return [];
     }
 
     // Import models from types
     const { ZAI_MODELS: models } = await import("./types");
+    console.log(`[Z.ai Provider] Found ${models.length} models`);
 
     const infos: LanguageModelChatInformation[] = models.map(
-      (model: ZaiModelInfo) => ({
-        id: model.id,
-        name: model.displayName,
-        tooltip: `Z.ai ${model.name}`,
-        family: "zai",
-        version: "1.0.0",
-        maxInputTokens: Math.max(1, model.contextWindow - model.maxOutput),
-        maxOutputTokens: model.maxOutput,
-        capabilities: {
-          toolCalling: model.supportsTools,
-          imageInput: true, // All models can process images via MCP (Vision models natively, others via text conversion)
-        },
-      })
+      (model: ZaiModelInfo) => {
+        console.log(`[Z.ai Provider] Model info: ${model.id}`, {
+          supportsVision: model.supportsVision,
+          supportsTools: model.supportsTools,
+          contextWindow: model.contextWindow,
+          maxOutput: model.maxOutput,
+        });
+        return {
+          id: model.id,
+          name: model.displayName,
+          tooltip: `Z.ai ${model.name}`,
+          family: "zai",
+          version: "1.0.0",
+          maxInputTokens: Math.max(1, model.contextWindow - model.maxOutput),
+          maxOutputTokens: model.maxOutput,
+          capabilities: {
+            toolCalling: model.supportsTools,
+            imageInput: true, // Image input allowed; non-vision models auto-route
+          },
+        };
+      }
     );
 
+    console.log(`[Z.ai Provider] Returning ${infos.length} models`);
     return infos;
   }
 
@@ -140,22 +179,53 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   }
 
   /**
-   * Pre-process messages to handle images for non-Vision models
-   * Converts images to text descriptions using Vision MCP
+   * Pick a fallback vision model for image input
+   */
+  private getVisionFallbackModelId(): string | undefined {
+    const preferred = ZAI_MODELS.find(
+      (m) => m.id === "glm-4.6v" && m.supportsVision
+    );
+    if (preferred) {
+      return preferred.id;
+    }
+    return ZAI_MODELS.find((m) => m.supportsVision)?.id;
+  }
+
+  /**
+   * Check if any message contains image input parts
+   */
+  private hasImageInput(
+    messages: readonly LanguageModelChatMessage[]
+  ): boolean {
+    for (const msg of messages) {
+      for (const part of msg.content) {
+        if (extractImageData(part)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Get model info by id
+   */
+  private getModelInfo(modelId: string): ZaiModelInfo | undefined {
+    return ZAI_MODELS.find((m) => m.id === modelId);
+  }
+
+  /**
+   * Pre-process messages to handle images
+   * Converts images to text descriptions using GLM-OCR MCP
    */
   private async processImagesForNonVisionModel(
     messages: readonly LanguageModelChatMessage[],
-    modelId: string,
+    _modelId: string,
     token: CancellationToken
   ): Promise<{
     processedMessages: LanguageModelChatMessage[];
     imageDescriptions: string[];
   }> {
-    // If model supports vision, no preprocessing needed
-    if (this.modelSupportsVision(modelId)) {
-      return { processedMessages: [...messages], imageDescriptions: [] };
-    }
-
     const imageDescriptions: string[] = [];
     const processedMessages: LanguageModelChatMessage[] = [];
 
@@ -201,7 +271,6 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           analysisPrompt
         );
         thisMessageDescriptions.push(description);
-        imageDescriptions.push(description);
       }
 
       // Replace image with text description for non-Vision model
@@ -268,18 +337,38 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         throw new Error("Z.ai API key not found");
       }
 
-      // Pre-process images for non-Vision models
-      // If model supports vision, we'll use the original messages directly
-      // Otherwise, we'll process images and convert them to text descriptions
-      const { processedMessages } = await this.processImagesForNonVisionModel(
-        messages,
-        model.id,
-        token
-      );
+      const hasImages = this.hasImageInput(messages);
+      let processedMessages = messages;
+      let effectiveModelId = model.id;
 
-      // Use processed messages (images converted to text for non-Vision models)
+      if (hasImages) {
+        if (!this.modelSupportsVision(model.id)) {
+          const visionFallback = this.getVisionFallbackModelId();
+          if (visionFallback && visionFallback !== model.id) {
+            console.warn(
+              "[Z.ai Model Provider] Switching to vision model for image input",
+              {
+                originalModel: model.id,
+                visionModel: visionFallback,
+              }
+            );
+            effectiveModelId = visionFallback;
+          } else {
+            console.warn(
+              "[Z.ai Model Provider] No vision model available, using OCR fallback"
+            );
+            const result = await this.processImagesForNonVisionModel(
+              messages,
+              model.id,
+              token
+            );
+            processedMessages = result.processedMessages;
+          }
+        }
+      }
+
       const zaiMessages = convertMessages(processedMessages);
-      validateRequest(messages);
+      validateRequest(processedMessages);
 
       const toolConfig = convertTools(options);
 
@@ -288,8 +377,14 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       }
 
       // Estimate tokens (rough approximation)
-      const inputTokenCount = estimateMessagesTokens(messages);
-      const tokenLimit = Math.max(1, model.maxInputTokens);
+      const inputTokenCount = estimateMessagesTokens(processedMessages);
+      const effectiveModelInfo = this.getModelInfo(effectiveModelId);
+      const tokenLimit = Math.max(
+        1,
+        effectiveModelInfo
+          ? effectiveModelInfo.contextWindow - effectiveModelInfo.maxOutput
+          : model.maxInputTokens
+      );
       if (inputTokenCount > tokenLimit) {
         console.error("[Z.ai Model Provider] Message exceeds token limit", {
           total: inputTokenCount,
@@ -304,11 +399,13 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       const temperatureVal =
         typeof mo?.temperature === "number" ? mo.temperature : 0.7;
 
+      const effectiveMaxOutputTokens =
+        effectiveModelInfo?.maxOutput ?? model.maxOutputTokens;
       const requestBody: ZaiRequestBody = {
-        model: model.id,
+        model: effectiveModelId,
         messages: zaiMessages,
         stream: true,
-        max_tokens: Math.min(maxTokensVal, model.maxOutputTokens),
+        max_tokens: Math.min(maxTokensVal, effectiveMaxOutputTokens),
         temperature: temperatureVal,
       };
 

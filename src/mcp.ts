@@ -229,7 +229,7 @@ export class ZaiMcpClient {
   }
 
   /**
-   * Analyze an image using Z.ai Vision API directly
+   * Analyze an image using Z.ai Vision model
    * This can be used for non-Vision models to add image processing capabilities
    * @param imageData Base64-encoded image (data URL format)
    * @param prompt What to analyze in the image
@@ -240,7 +240,7 @@ export class ZaiMcpClient {
       throw new Error("Z.ai API key not found");
     }
 
-    // Call Vision API directly via Z.ai chat completions endpoint
+    // Call Vision model via chat completions endpoint
     const response = await fetch(
       "https://api.z.ai/api/coding/paas/v4/chat/completions",
       {
@@ -250,7 +250,7 @@ export class ZaiMcpClient {
           Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: "glm-4.6v", // Use Vision model for image analysis
+          model: "glm-4.6v",
           messages: [
             {
               role: "user",
@@ -271,7 +271,7 @@ export class ZaiMcpClient {
     }
 
     const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>;
+      choices?: Array<{ message?: { content?: string } }>;
     };
 
     const result =
