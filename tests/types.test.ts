@@ -365,12 +365,18 @@ describe("ZAI_MODELS", () => {
     expect(model?.name).toBe("GLM-4.7");
     expect(model?.supportsTools).toBe(true);
     expect(model?.supportsVision).toBe(false);
+    // Official values: 200K context, 128K max output
+    expect(model?.contextWindow).toBe(200000);
+    expect(model?.maxOutput).toBe(128000);
   });
 
   it("should have GLM-4.7 Flash model", () => {
     const model = ZAI_MODELS.find((m) => m.id === "glm-4.7-flash");
     expect(model).toBeDefined();
     expect(model?.name).toBe("GLM-4.7 Flash");
+    // Flash defaults show 200K context and 131072 max_new_tokens
+    expect(model?.contextWindow).toBe(200000);
+    expect(model?.maxOutput).toBe(131072);
   });
 
   it("should have GLM-4.6V model", () => {

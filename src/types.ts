@@ -177,8 +177,9 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-4.7",
     name: "GLM-4.7",
     displayName: "GLM-4.7",
-    contextWindow: 128000,
-    maxOutput: 16000,
+    // Official: GLM-4.7 supports 200K token context and up to 128K output tokens
+    contextWindow: 200000,
+    maxOutput: 128000,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
@@ -186,8 +187,9 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-4.7-flash",
     name: "GLM-4.7 Flash",
     displayName: "GLM-4.7 Flash",
-    contextWindow: 128000,
-    maxOutput: 16000,
+    // Model card shows default max_new_tokens = 131072; use 200K context window
+    contextWindow: 200000,
+    maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // No vision support
   },
