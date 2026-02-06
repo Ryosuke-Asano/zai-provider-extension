@@ -9,8 +9,8 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 ## Features
 
 - **Multiple Model Support**: Access to Z.ai's latest GLM models
-  - **GLM-4.7**: High-performance text model (128K context)
-  - **GLM-4.7 Flash**: Fast, cost-effective model (128K context)
+   - **GLM-4.7**: High-performance text model (200K context)
+   - **GLM-4.7 Flash**: Fast, cost-effective model (200K context)
 
 - **Tool Calling**: Full support for function calling and external tools
 - **Streaming Responses**: Real-time response streaming for better UX
@@ -39,7 +39,7 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 
 3. **Configure the Extension**
    - Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`)
-   - Run: `Z.ai: Manage API Key`
+   - Run: `Z.ai: Manage Z.ai Provider`
    - Enter your Z.ai API key when prompted
 
 4. **Start Chatting**
@@ -49,10 +49,10 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 
 ## Model Capabilities
 
-| Model             | Context Window | Max Output | Tool Calling | Vision | Thinking |
-| ----------------- | -------------- | ---------- | ------------ | ------ | -------- |
-| **GLM-4.7**       | 128K           | 16K        | ✅           | ✅     | ✅       |
-| **GLM-4.7 Flash** | 128K           | 16K        | ✅           | ✅     | ✅       |
+| Model             | Context Window | Max Output | Tool Calling | Vision        | Thinking |
+| ----------------- | -------------- | ---------- | ------------ | ------------- | -------- |
+| **GLM-4.7**       | 200K           | 128K       | ✅           | ✅ (via OCR)  | ✅       |
+| **GLM-4.7 Flash** | 200K           | 131K       | ✅           | ✅ (via OCR)  | ✅       |
 
 ## Vision Support
 
@@ -142,6 +142,7 @@ npm run watch
 zai-provider-extension/
 ├── src/
 │   ├── extension.ts      # Extension entry point
+│   ├── mcp.ts            # MCP client (vision/OCR)
 │   ├── provider.ts       # LanguageModelChatProvider implementation
 │   ├── utils.ts          # Utility functions
 │   └── types.ts          # Type definitions
@@ -174,6 +175,7 @@ The extension uses the Z.ai Coding Plan API:
 ### "Message exceeds token limit"
 
 - Reduce the length of your message or conversation history
+- Large tool outputs or attachments can inflate the prompt; retry with fewer/shorter tool results
 - Try a model with a larger context window
 
 ### Models not appearing in Copilot Chat

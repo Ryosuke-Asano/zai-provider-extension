@@ -10,7 +10,11 @@ export default [
       "dist/**",
       "node_modules/**",
       "*.vsix",
+      "coverage/**",
       ".vscode-test/**",
+      ".vscode/**",
+      ".idea/**",
+      "*.log",
     ],
   },
   {
