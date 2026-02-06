@@ -31,11 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Support for GLM-4.7, GLM-4.7 Flash, and GLM-4.6V models
+- Support for GLM-4.7 and GLM-4.7 Flash (GLM-4.6V is kept internal for vision fallback)
 - Tool calling support
 - Streaming responses
-- Vision support for all models
-- Thinking process display for GLM-4.5/4.6/4.7
+- Vision support via GLM-OCR and internal GLM-4.6V fallback
+- Thinking process display for GLM-4.7
 - Detailed logging for image analysis and reasoning
 - Secure API key storage using VS Code secret storage
 - Command palette integration for API key management

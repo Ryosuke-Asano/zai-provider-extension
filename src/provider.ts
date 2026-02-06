@@ -140,9 +140,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
 
     // Import models from types
     const { ZAI_MODELS: models } = await import("./types");
-    console.log(`[Z.ai Provider] Found ${models.length} models`);
+    const publicModels = models.filter((m) => !m.internal);
+    console.log(
+      `[Z.ai Provider] Found ${models.length} models (${publicModels.length} public)`
+    );
 
-    const infos: LanguageModelChatInformation[] = models.map(
+    const infos: LanguageModelChatInformation[] = publicModels.map(
       (model: ZaiModelInfo) => {
         console.log(`[Z.ai Provider] Model info: ${model.id}`, {
           supportsVision: model.supportsVision,

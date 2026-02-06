@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 /**
  * Unit tests for type definitions in types.ts
  */

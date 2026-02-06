@@ -116,6 +116,11 @@ export interface ZaiModelInfo {
   maxOutput: number;
   supportsTools: boolean;
   supportsVision: boolean;
+  /**
+   * When true, the model is internal-only and should not be exposed to users.
+   * For example, `glm-4.6v` may be kept for internal vision fallback.
+   */
+  internal?: boolean;
 }
 
 /**
@@ -201,5 +206,6 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     maxOutput: 16000,
     supportsTools: true,
     supportsVision: true, // Native vision model
+    internal: true, // Internal-only; used for vision fallback
   },
 ];

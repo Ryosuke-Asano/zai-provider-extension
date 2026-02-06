@@ -15,7 +15,7 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 - **Tool Calling**: Full support for function calling and external tools
 - **Streaming Responses**: Real-time response streaming for better UX
 - **Vision Support**: Image analysis capabilities for all models (via GLM-OCR API)
-- **Thinking Process Display**: View model's reasoning in collapsible sections (GLM-4.5/4.6/4.7)
+- **Thinking Process Display**: View model's reasoning in collapsible sections (GLM-4.7 / GLM-4.7 Flash)
 - **Detailed Logging**: Progress indicators for image analysis and reasoning process
 - **BYOK (Bring Your Own Key)**: Use your own Z.ai API key
 - **Secure API Key Storage**: Uses VS Code's secret storage for your API keys
@@ -81,7 +81,7 @@ When images are being analyzed, you can see detailed progress logs in the VS Cod
 
 ## Thinking Process Display
 
-For GLM-4.5, GLM-4.6, and GLM-4.7 models, you can now see the model's reasoning process displayed in a collapsible section:
+For GLM-4.7 and GLM-4.7 Flash models, you can now see the model's reasoning process displayed in a collapsible section:
 
 ```
 <details open>
@@ -182,8 +182,9 @@ The extension uses the Z.ai Coding Plan API:
 - Verify that GitHub Copilot is enabled and you're logged in
 - Check that the extension is activated (no errors in the dev tools console)
 
-### Images not being processed by GLM-4.6V
+### Vision & GLM-4.6V fallback
 
+- The extension uses an internal `GLM-4.6v` model for native vision support as a fallback; it is not exposed in the model selector.
 - Due to VS Code API limitations, image data is not accessible to extensions
 - VS Code provides only ephemeral references to images, not the actual image bytes
 - This is a platform limitation that affects all Language Model Chat Provider extensions
