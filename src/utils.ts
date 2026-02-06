@@ -132,8 +132,31 @@ export function getToolCallInfo(
 /**
  * Helper: extract tool result textual representation from a part
  */
+function truncateText(text: string, maxChars?: number): string {
+  if (typeof maxChars !== "number" || maxChars <= 0) {
+    return text;
+  }
+  if (text.length <= maxChars) {
+    return text;
+  }
+  const removed = text.length - maxChars;
+  return `${text.slice(0, maxChars)}\n...[truncated ${removed} chars]`;
+}
+
+function isLegacyToolResultPart(part: LegacyPart): boolean {
+  if (typeof part.callId === "string") {
+    return true;
+  }
+  if (typeof part.type === "string") {
+    const t = part.type.toLowerCase();
+    return t === "tool_result" || t === "tool_result_part";
+  }
+  return false;
+}
+
 export function getToolResultTexts(
-  part: vscode.LanguageModelInputPart | LegacyPart
+  part: vscode.LanguageModelInputPart | LegacyPart,
+  maxChars?: number
 ): string[] {
   const results: string[] = [];
 
@@ -143,7 +166,7 @@ export function getToolResultTexts(
         inner as vscode.LanguageModelInputPart | LegacyPart
       );
       if (tv !== undefined) {
-        results.push(tv);
+        results.push(truncateText(tv, maxChars));
         continue;
       }
       try {
@@ -152,12 +175,17 @@ export function getToolResultTexts(
           "function"
         ) {
           const v = (inner as { valueOf: () => string | object }).valueOf();
-          results.push(typeof v === "string" ? v : JSON.stringify(v));
+          results.push(
+            truncateText(
+              typeof v === "string" ? v : JSON.stringify(v),
+              maxChars
+            )
+          );
         } else {
-          results.push(JSON.stringify(inner));
+          results.push(truncateText(JSON.stringify(inner), maxChars));
         }
       } catch {
-        results.push(String(inner));
+        results.push(truncateText(String(inner), maxChars));
       }
     }
     return results;
@@ -165,19 +193,24 @@ export function getToolResultTexts(
 
   if (typeof part === "object" && part !== null) {
     const p = part as LegacyPart;
+    if (!isLegacyToolResultPart(p)) {
+      return results;
+    }
     if (typeof p.value === "string") {
-      results.push(p.value);
+      results.push(truncateText(p.value, maxChars));
     } else if (
       typeof (p as { valueOf?: () => string | object }).valueOf === "function"
     ) {
       try {
         const v = (p as { valueOf: () => string | object }).valueOf();
-        results.push(typeof v === "string" ? v : JSON.stringify(v));
+        results.push(
+          truncateText(typeof v === "string" ? v : JSON.stringify(v), maxChars)
+        );
       } catch {
-        results.push(JSON.stringify(p));
+        results.push(truncateText(JSON.stringify(p), maxChars));
       }
     } else {
-      results.push(JSON.stringify(p));
+      results.push(truncateText(JSON.stringify(p), maxChars));
     }
   }
 
@@ -188,7 +221,8 @@ export function getToolResultTexts(
  * Convert VSCode LanguageModelChatMessage to Z.ai/OpenAI format
  */
 export function convertMessages(
-  messages: readonly vscode.LanguageModelChatMessage[]
+  messages: readonly vscode.LanguageModelChatMessage[],
+  options?: { maxToolResultChars?: number }
 ): ZaiChatMessage[] {
   const result: ZaiChatMessage[] = [];
 
@@ -260,7 +294,9 @@ export function convertMessages(
     }
 
     // Handle tool results
-    const toolResultTexts = msg.content.flatMap((p) => getToolResultTexts(p));
+    const toolResultTexts = msg.content.flatMap((p) =>
+      getToolResultTexts(p, options?.maxToolResultChars)
+    );
     if (toolResultTexts.length > 0) {
       const textContent = textParts.join(" ");
       zaiMsg.content = (textContent + "\n" + toolResultTexts.join("\n")).trim();
@@ -380,7 +416,8 @@ export function estimateMessagesTokens(
     | readonly vscode.LanguageModelChatMessage[]
     | readonly {
         content: (vscode.LanguageModelInputPart | LegacyPart)[];
-      }[]
+      }[],
+  options?: { maxToolResultChars?: number }
 ): number {
   let total = 0;
   for (const m of messages) {
@@ -392,7 +429,19 @@ export function estimateMessagesTokens(
       }
       const img = extractImageData(part);
       if (img) {
-        total += 1500; // Rough estimate
+        // Rough estimate based on base64 size to avoid undercount
+        const approxBase64Tokens = Math.ceil(img.data.length / 3);
+        total += Math.max(1500, approxBase64Tokens);
+        continue;
+      }
+      const toolResultTexts = getToolResultTexts(
+        part,
+        options?.maxToolResultChars
+      );
+      if (toolResultTexts.length > 0) {
+        for (const tr of toolResultTexts) {
+          total += estimateTokens(tr);
+        }
       }
     }
   }

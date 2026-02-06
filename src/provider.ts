@@ -31,6 +31,7 @@ import {
 import { ZaiMcpClient } from "./mcp";
 
 const BASE_URL = "https://api.z.ai/api/coding/paas/v4";
+const MAX_TOOL_RESULT_CHARS = 20000;
 
 /**
  * VS Code Chat provider backed by Z.ai API.
@@ -370,7 +371,9 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         }
       }
 
-      const zaiMessages = convertMessages(processedMessages);
+      const zaiMessages = convertMessages(processedMessages, {
+        maxToolResultChars: MAX_TOOL_RESULT_CHARS,
+      });
       validateRequest(processedMessages);
 
       const toolConfig = convertTools(options);
@@ -380,7 +383,9 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       }
 
       // Estimate tokens (rough approximation)
-      const inputTokenCount = estimateMessagesTokens(processedMessages);
+      const inputTokenCount = estimateMessagesTokens(processedMessages, {
+        maxToolResultChars: MAX_TOOL_RESULT_CHARS,
+      });
       const effectiveModelInfo = this.getModelInfo(effectiveModelId);
       const tokenLimit = Math.max(
         1,

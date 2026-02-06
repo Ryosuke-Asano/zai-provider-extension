@@ -8,6 +8,9 @@
       "ES2020",
       "DOM"
     ],
+    "types": [
+      "node"
+    ],
     "sourceMap": true,
     "strict": true,
     "esModuleInterop": true,
