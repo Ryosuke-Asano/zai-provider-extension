@@ -9,8 +9,8 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 ## Features
 
 - **Multiple Model Support**: Access to Z.ai's latest GLM models
-   - **GLM-4.7**: High-performance text model (200K context)
-   - **GLM-4.7 Flash**: Fast, cost-effective model (200K context)
+  - **GLM-4.7**: High-performance text model (200K context)
+  - **GLM-4.7 Flash**: Fast, cost-effective model (200K context)
 
 - **Tool Calling**: Full support for function calling and external tools
 - **Streaming Responses**: Real-time response streaming for better UX
@@ -49,10 +49,10 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 
 ## Model Capabilities
 
-| Model             | Context Window | Max Output | Tool Calling | Vision        | Thinking |
-| ----------------- | -------------- | ---------- | ------------ | ------------- | -------- |
-| **GLM-4.7**       | 200K           | 128K       | ✅           | ✅ (via OCR)  | ✅       |
-| **GLM-4.7 Flash** | 200K           | 131K       | ✅           | ✅ (via OCR)  | ✅       |
+| Model             | Context Window | Max Output | Tool Calling | Vision       | Thinking |
+| ----------------- | -------------- | ---------- | ------------ | ------------ | -------- |
+| **GLM-4.7**       | 200K           | 128K       | ✅           | ✅ (via OCR) | ✅       |
+| **GLM-4.7 Flash** | 200K           | 131K       | ✅           | ✅ (via OCR) | ✅       |
 
 ## Vision Support
 
