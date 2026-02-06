@@ -61,7 +61,7 @@
     "postdownload-api": "dts main",
     "postinstall": "npm run download-api",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "watch": "tsc -w -p ./",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write .",
