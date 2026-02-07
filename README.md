@@ -70,12 +70,17 @@ This extension provides vision capabilities for all Z.ai models using the GLM-OC
 
 ### How It Works
 
-When you send images with Z.ai models, the extension:
+When you send images with Z.ai models, the extension follows a best-effort flow that matches the current implementation:
 
-1. Sends images to the GLM-OCR layout parsing API
-2. Converts the analysis to detailed text descriptions (including structured content like charts, tables, and documents)
-3. Includes these descriptions in the chat context
-4. The model then responds based on the image descriptions
+1. Attempts to extract image bytes from the message parts via the VS Code APIs. If byte data is available the extension converts it to a `data:` URL (`data:<mime>;base64,...`).
+2. Sends the image data URL to Z.ai (GLM-OCR / vision endpoint) via the MCP/vision tool or the `glm-4.6v` vision model to perform layout parsing and analysis.
+3. Converts the analysis into detailed text descriptions (including structured content like charts, tables, and documents) and adds them to the chat message content.
+4. The model responds using the augmented chat context (the original text plus the image descriptions).
+
+Notes:
+
+- If raw image bytes are not available from the editor or input, the extension will fall back to available vision-capable models (for example `glm-4.6v`) or a best-effort OCR path. The extension logs warnings when it cannot obtain image byte data.
+- Image data is sent to Z.ai using the user's API key; review your privacy and API usage settings if this is a concern.
 
 ### Developer Console Logs
 
@@ -268,3 +273,14 @@ For issues, questions, or suggestions:
 
 - Built with [VSCode Language Model Chat Provider API](https://code.visualstudio.com/api/extension-guides/ai/language-model-chat-provider)
 - Inspired by [Hugging Face Provider for GitHub Copilot Chat](https://github.com/huggingface/huggingface-vscode-chat)
+
+**VISION**
+
+Z.ai Chat Provider は、Z.ai の最新 GLM 系モデルを GitHub Copilot Chat に統合し、開発者が高性能な大規模言語モデルとシームレスにやり取りできるようにすることを目指します。現状の実装では以下を重視しています。
+
+- **実用的なモデル統合**: GLM-4.7 系（GLM-4.7 / GLM-4.7 Flash）を優先サポートし、長いコンテキスト（200K）やストリーミング応答、関数呼び出しを活用した実務的なワークフローを提供します。
+- **画像（Vision）対応**: GLM-OCR ベースのレイアウト解析を介して画像入力をテキスト化し、チャット内で画像内容を扱えるようにします。プラットフォーム制約により一部はサーバー経由で処理されますが、ユーザー体験を損なわないよう進捗表示とエラーハンドリングを実装しています。
+- **開発者向け設計**: API キーの安全な保管、設定の使いやすさ、詳細なログ出力とテストカバレッジを備え、拡張・デバッグしやすいコード構造を維持します。
+- **現実的な制約の明示**: VS Code の拡張 API の制約（画像バイナリへの直接アクセスが制限される等）を踏まえ、フォールバック動作や開発者向けの注意点をドキュメント化しています。
+
+今後の方向性としては、より広いモデル選択肢の提供、ローカルまたはよりプライベートな処理オプションの追求、そしてユーザーからのフィードバックに応じた UX 改善を計画しています。
