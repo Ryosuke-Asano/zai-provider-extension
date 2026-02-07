@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ryosuke-Asano/zai-vscode-chat"
+    "url": "https://github.com/Ryosuke-Asano/zai-provider-extension"
   },
   "engines": {
     "vscode": "^1.104.0"
@@ -56,10 +56,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "pnpm run compile",
     "download-api": "dts dev",
     "postdownload-api": "dts main",
-    "postinstall": "npm run download-api",
+    "postinstall": "pnpm run download-api",
     "compile": "tsc -p ./",
     "watch": "tsc -w -p ./",
     "lint": "eslint src",

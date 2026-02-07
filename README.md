@@ -1,6 +1,6 @@
 # Z.ai Chat Provider for VS Code
 
-[![CI](https://github.com/Ryosuke-Asano/zai-vscode-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/Ryosuke-Asano/zai-vscode-chat/actions/workflows/ci.yml)
+[![CI](https://github.com/Ryosuke-Asano/zai-provider-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/Ryosuke-Asano/zai-provider-extension/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm version](https://img.shields.io/npm/v/zai-vscode-chat.svg)](https://www.npmjs.com/package/zai-vscode-chat)
 
@@ -31,7 +31,15 @@ A Visual Studio Code extension that integrates [Z.ai](https://z.ai) models (GLM-
 
 1. **Install the Extension**
    - Search for "Z.ai Chat Provider" in the VS Code Extensions Marketplace
-   - Or install via VSIX: `code --install-extension zai-vscode-chat-*.vsix`
+   - Or build and install via VSIX:
+
+     ```bash
+     # Build the extension
+     pnpm run package
+
+     # Install the generated .vsix file
+     code --install-extension zai-vscode-chat-*.vsix
+     ```
 
 2. **Get Your API Key**
    - Visit [Z.ai](https://z.ai) and sign up for an account
@@ -120,17 +128,17 @@ To change this setting:
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/Ryosuke-Asano/zai-provider-extension.git
 cd zai-provider-extension
 
 # Install dependencies
-npm install
+pnpm install
 
 # Compile TypeScript
-npm run compile
+pnpm run compile
 
 # Watch for changes
-npm run watch
+pnpm run watch
 
 # Run in VS Code Extension Development Host
 # Press F5 in VS Code
@@ -146,8 +154,20 @@ zai-provider-extension/
 │   ├── provider.ts       # LanguageModelChatProvider implementation
 │   ├── utils.ts          # Utility functions
 │   └── types.ts          # Type definitions
+├── tests/
+│   ├── mcp.test.ts       # MCP client tests
+│   ├── types.test.ts     # Type definitions tests
+│   └── utils.test.ts     # Utility function tests
+├── scripts/
+│   └── make-icon.js      # Icon generation script
+├── __mocks__/
+│   └── vscode.ts         # VS Code API mocks
 ├── package.json          # Extension manifest
 ├── tsconfig.json         # TypeScript configuration
+├── tsconfig.test.json    # Test TypeScript configuration
+├── jest.config.js        # Jest test configuration
+├── eslint.config.mjs     # ESLint configuration
+├── .prettierrc           # Prettier configuration
 └── README.md
 ```
 
@@ -157,6 +177,43 @@ The extension uses the Z.ai Coding Plan API:
 
 - **Endpoint**: `https://api.z.ai/api/coding/paas/v4`
 - **Compatible with**: OpenAI API format
+
+## Available Scripts
+
+```bash
+# Compile TypeScript
+pnpm run compile
+
+# Watch for changes and recompile automatically
+pnpm run watch
+
+# Run ESLint
+pnpm run lint
+
+# Run ESLint with auto-fix
+pnpm run lint:fix
+
+# Format code with Prettier
+pnpm run format
+
+# Check code formatting
+pnpm run format:check
+
+# Run tests
+pnpm run test
+
+# Run tests in watch mode
+pnpm run test:watch
+
+# Run tests with coverage report
+pnpm run test:coverage
+
+# Package the extension
+pnpm run package
+
+# Publish the extension
+pnpm run publish
+```
 
 ## Getting a Z.ai API Key
 
