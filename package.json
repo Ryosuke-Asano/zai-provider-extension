@@ -56,10 +56,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run compile",
+    "vscode:prepublish": "npm run compile",
     "download-api": "dts dev",
     "postdownload-api": "dts main",
-    "postinstall": "pnpm run download-api",
+    "postinstall": "npm run download-api",
     "compile": "tsc -p ./",
     "watch": "tsc -w -p ./",
     "lint": "eslint src",
