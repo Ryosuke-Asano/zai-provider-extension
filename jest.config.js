@@ -4,10 +4,13 @@ module.exports = {
   testEnvironment: "node",
   roots: ["<rootDir>/src", "<rootDir>/tests"],
   testMatch: ["**/__tests__/**/*.ts", "**/*.test.ts"],
-  globals: {
-    'ts-jest': {
-      tsconfig: "<rootDir>/tsconfig.test.json"
-    }
+  transform: {
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        tsconfig: "<rootDir>/tsconfig.test.json",
+      },
+    ],
   },
   collectCoverageFrom: [
     "src/**/*.ts",
