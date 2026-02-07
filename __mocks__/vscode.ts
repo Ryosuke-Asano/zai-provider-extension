@@ -175,6 +175,14 @@ export interface LanguageModelResponsePart {
   value: string;
 }
 
+export class SecretStorage {
+  get = jest.fn();
+  store = jest.fn();
+  delete = jest.fn();
+  keys = jest.fn();
+  onDidChange = jest.fn();
+}
+
 export const secrets = {
   get: jest.fn(),
   store: jest.fn(),
