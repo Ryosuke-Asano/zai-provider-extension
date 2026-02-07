@@ -2,7 +2,8 @@
   "name": "zai-vscode-chat",
   "displayName": "Z.ai Chat Provider for VS Code",
   "description": "Integrates Z.ai models (GLM-4.7, GLM-4.7 Flash) into VS Code Copilot Chat with vision support and thinking process display",
-  "version": "0.5.3",
+  "version": "0.5.4",
+  "packageManager": "npm@9",
   "publisher": "Ryosuke-Asano",
   "license": "MIT",
   "repository": {
@@ -56,10 +57,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run compile",
+    "vscode:prepublish": "npm run compile",
     "download-api": "dts dev",
     "postdownload-api": "dts main",
-    "postinstall": "pnpm run download-api",
+    "postinstall": "npm run download-api",
     "compile": "tsc -p ./",
     "watch": "tsc -w -p ./",
     "lint": "eslint src",
@@ -78,8 +79,10 @@
     "@types/node": "^25.1.0",
     "@types/vscode": "^1.104.0",
     "@vscode/dts": "^0.4.1",
+    "@vscode/vsce": "^3.7.1",
     "eslint": "^9.39.2",
     "jest": "^30.2.0",
+    "ovsx": "^0.10.9",
     "prettier": "^3.8.1",
     "ts-jest": "^29.4.6",
     "typescript": "^5.9.3",
