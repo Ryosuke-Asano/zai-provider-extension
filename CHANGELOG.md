@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GLM-5 model support (200K context window, 128K max output tokens, tool calling, and thinking mode)
 - CI/CD pipeline with GitHub Actions
   - Automated linting, testing, and compilation checks
   - Automated release workflow for tag pushes
