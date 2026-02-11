@@ -96,9 +96,9 @@ Once configured, select Z.ai as your chat provider in VS Code Copilot Chat:
 
 | Model         | Context Window | Max Output | Vision | Tools |
 | ------------- | -------------- | ---------- | ------ | ----- |
-| GLM-4.7       | 200,000        | 128,000    | No     | Yes   |
+| GLM-4.7       | 200,000        | 131,072    | No     | Yes   |
 | GLM-4.7 Flash | 200,000        | 131,072    | No     | Yes   |
-| GLM-5         | 200,000        | 128,000    | No     | Yes   |
+| GLM-5         | 200,000        | 131,072    | No     | Yes   |
 
 ### Internal Models (Not Exposed)
 
