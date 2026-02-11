@@ -50,6 +50,26 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   /** Track if we emitted any assistant text before seeing tool calls */
   private _hasEmittedAssistantText = false;
 
+  /** Track if we emitted the begin-tool-calls whitespace hint */
+  private _emittedBeginToolCallsHint = false;
+
+  /** Buffer for text-embedded tool call token parsing */
+  private _textToolParserBuffer = "";
+
+  /** Active text-embedded tool call being assembled */
+  private _textToolActive:
+    | {
+        name?: string;
+        index?: number;
+        argBuffer: string;
+        emitted?: boolean;
+      }
+    | undefined;
+
+  /** Deduplicate tool calls parsed from text and structured deltas */
+  private _emittedTextToolCallKeys = new Set<string>();
+  private _emittedTextToolCallIds = new Set<string>();
+
   /** Track if we emitted any thinking/reasoning content */
   private _hasEmittedThinkingContent = false;
 
@@ -354,6 +374,11 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     this._toolCallBuffers.clear();
     this._completedToolCallIndices.clear();
     this._hasEmittedAssistantText = false;
+    this._emittedBeginToolCallsHint = false;
+    this._textToolParserBuffer = "";
+    this._textToolActive = undefined;
+    this._emittedTextToolCallKeys.clear();
+    this._emittedTextToolCallIds.clear();
     const abortController = new AbortController();
     const cancellationSubscription = token.onCancellationRequested(() => {
       abortController.abort();
@@ -652,7 +677,9 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
               progress.report(reasoningText);
               this._reasoningContentBuffer = "";
             }
-            await this.flushToolCallBuffers(progress, true);
+            // Do not throw on DONE for incomplete tool call JSON.
+            await this.flushToolCallBuffers(progress, false);
+            await this.flushActiveTextToolCall(progress);
             continue;
           }
 
@@ -670,6 +697,11 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       this._toolCallBuffers.clear();
       this._completedToolCallIndices.clear();
       this._hasEmittedAssistantText = false;
+      this._emittedBeginToolCallsHint = false;
+      this._textToolParserBuffer = "";
+      this._textToolActive = undefined;
+      this._emittedTextToolCallKeys.clear();
+      this._emittedTextToolCallIds.clear();
       this._hasEmittedThinkingContent = false;
       this._reasoningContentBuffer = "";
     }
@@ -718,10 +750,9 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           length: this._reasoningContentBuffer.length,
           timestamp: new Date().toISOString(),
         });
-        // Use collapsible details section for completed reasoning
         const formattedReasoning = this.formatReasoningContent(
           this._reasoningContentBuffer,
-          true // isComplete - reasoning is done, content is about to start
+          true
         );
         const reasoningText = new vscode.LanguageModelTextPart(
           formattedReasoning
@@ -730,14 +761,28 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         this._reasoningContentBuffer = "";
       }
 
-      progress.report(new vscode.LanguageModelTextPart(content));
-      this._hasEmittedAssistantText = true;
-      emitted = true;
+      const textResult = this.processTextContent(content, progress);
+      if (textResult.emittedText) {
+        this._hasEmittedAssistantText = true;
+      }
+      if (textResult.emittedAny) {
+        emitted = true;
+      }
     }
 
     // Handle tool calls
     if (deltaObj?.tool_calls) {
       const toolCalls = deltaObj.tool_calls;
+
+      // Emit a whitespace hint to flush UI rendering once tool calls begin
+      if (
+        !this._emittedBeginToolCallsHint &&
+        this._hasEmittedAssistantText &&
+        toolCalls.length > 0
+      ) {
+        progress.report(new vscode.LanguageModelTextPart(" "));
+        this._emittedBeginToolCallsHint = true;
+      }
 
       for (const tc of toolCalls) {
         const idx = (tc as { index?: number }).index ?? 0;
@@ -773,6 +818,303 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   }
 
   /**
+   * Parse provider control tokens embedded in streamed text and emit text/tool calls.
+   */
+  private processTextContent(
+    input: string,
+    progress: vscode.Progress<vscode.LanguageModelResponsePart>
+  ): { emittedText: boolean; emittedAny: boolean } {
+    const BEGIN = "<|tool_call_begin|>";
+    const ARG_BEGIN = "<|tool_call_argument_begin|>";
+    const END = "<|tool_call_end|>";
+
+    let data = this._textToolParserBuffer + input;
+    let emittedText = false;
+    let emittedAny = false;
+    let visibleOut = "";
+
+    while (data.length > 0) {
+      if (!this._textToolActive) {
+        const b = data.indexOf(BEGIN);
+        if (b === -1) {
+          let longestPartialPrefix = 0;
+          for (
+            let k = Math.min(BEGIN.length - 1, data.length - 1);
+            k > 0;
+            k--
+          ) {
+            if (data.endsWith(BEGIN.slice(0, k))) {
+              longestPartialPrefix = k;
+              break;
+            }
+          }
+
+          if (longestPartialPrefix > 0) {
+            const visible = data.slice(0, data.length - longestPartialPrefix);
+            if (visible) {
+              visibleOut += this.stripControlTokens(visible);
+            }
+            this._textToolParserBuffer = data.slice(
+              data.length - longestPartialPrefix
+            );
+            data = "";
+            break;
+          }
+
+          const lines = data.split(/\r?\n/);
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const emittedJsonTool = this.tryEmitJsonToolCallLine(line, progress);
+            if (emittedJsonTool) {
+              emittedAny = true;
+              continue;
+            }
+            visibleOut += this.stripControlTokens(line);
+            if (i < lines.length - 1) {
+              visibleOut += "\n";
+            }
+          }
+          data = "";
+          break;
+        }
+
+        const pre = data.slice(0, b);
+        if (pre) {
+          visibleOut += this.stripControlTokens(pre);
+        }
+        data = data.slice(b + BEGIN.length);
+
+        const a = data.indexOf(ARG_BEGIN);
+        const e = data.indexOf(END);
+        let delimIdx = -1;
+        let delimKind: "arg" | "end" | undefined;
+        if (a !== -1 && (e === -1 || a < e)) {
+          delimIdx = a;
+          delimKind = "arg";
+        } else if (e !== -1) {
+          delimIdx = e;
+          delimKind = "end";
+        } else {
+          this._textToolParserBuffer = BEGIN + data;
+          data = "";
+          break;
+        }
+
+        const header = data.slice(0, delimIdx).trim();
+        const m = header.match(/^([A-Za-z0-9_\-.]+)(?::(\d+))?/);
+        const name = m?.[1];
+        const index = m?.[2] ? Number(m[2]) : undefined;
+        this._textToolActive = { name, index, argBuffer: "", emitted: false };
+
+        if (delimKind === "arg") {
+          data = data.slice(delimIdx + ARG_BEGIN.length);
+        } else {
+          data = data.slice(delimIdx + END.length);
+          const did = this.emitTextToolCallIfValid(
+            progress,
+            this._textToolActive,
+            "{}"
+          );
+          if (did) {
+            this._textToolActive.emitted = true;
+            emittedAny = true;
+          }
+          this._textToolActive = undefined;
+        }
+        continue;
+      }
+
+      const e2 = data.indexOf(END);
+      if (e2 === -1) {
+        this._textToolActive.argBuffer += data;
+        if (!this._textToolActive.emitted) {
+          const did = this.emitTextToolCallIfValid(
+            progress,
+            this._textToolActive,
+            this._textToolActive.argBuffer
+          );
+          if (did) {
+            this._textToolActive.emitted = true;
+            emittedAny = true;
+          }
+        }
+        data = "";
+        break;
+      }
+
+      this._textToolActive.argBuffer += data.slice(0, e2);
+      data = data.slice(e2 + END.length);
+      if (!this._textToolActive.emitted) {
+        const did = this.emitTextToolCallIfValid(
+          progress,
+          this._textToolActive,
+          this._textToolActive.argBuffer
+        );
+        if (did) {
+          emittedAny = true;
+        }
+      }
+      this._textToolActive = undefined;
+    }
+
+    if (visibleOut.length > 0) {
+      progress.report(new vscode.LanguageModelTextPart(visibleOut));
+      emittedText = true;
+      emittedAny = true;
+    }
+
+    this._textToolParserBuffer = data;
+    return { emittedText, emittedAny };
+  }
+
+  /**
+   * Detect and emit tool calls serialized as plain JSON text lines.
+   */
+  private tryEmitJsonToolCallLine(
+    line: string,
+    progress: vscode.Progress<vscode.LanguageModelResponsePart>
+  ): boolean {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+      return false;
+    }
+
+    const parsed = tryParseJSONObject<Record<string, Json>>(trimmed);
+    if (!parsed.ok) {
+      return false;
+    }
+
+    const obj = parsed.value;
+    const fn = (obj.function ?? null) as Record<string, Json> | null;
+    const name =
+      typeof obj.name === "string"
+        ? obj.name
+        : fn && typeof fn.name === "string"
+          ? fn.name
+          : undefined;
+    if (!name) {
+      return false;
+    }
+
+    const callId =
+      typeof obj.callId === "string"
+        ? obj.callId
+        : typeof obj.id === "string"
+          ? obj.id
+          : undefined;
+
+    let input: Record<string, Json> | undefined;
+    const inputVal = obj.input;
+    if (
+      inputVal &&
+      typeof inputVal === "object" &&
+      !Array.isArray(inputVal)
+    ) {
+      input = inputVal as Record<string, Json>;
+    }
+
+    if (!input) {
+      const argsVal = obj.arguments ?? fn?.arguments;
+      if (typeof argsVal === "string") {
+        const parsedArgs = tryParseJSONObject<Record<string, Json>>(argsVal);
+        if (!parsedArgs.ok) {
+          return false;
+        }
+        input = parsedArgs.value;
+      } else if (
+        argsVal &&
+        typeof argsVal === "object" &&
+        !Array.isArray(argsVal)
+      ) {
+        input = argsVal as Record<string, Json>;
+      }
+    }
+
+    if (!input) {
+      return false;
+    }
+
+    try {
+      const canonical = JSON.stringify(input);
+      const key = `${name}:${canonical}`;
+      if (this._emittedTextToolCallKeys.has(key)) {
+        return true;
+      }
+      this._emittedTextToolCallKeys.add(key);
+      if (callId) {
+        this._emittedTextToolCallIds.add(`${name}:${callId}`);
+      }
+    } catch {
+      // Fall through and emit even if canonicalization fails.
+    }
+
+    progress.report(
+      new vscode.LanguageModelToolCallPart(
+        callId ?? `jtc_${Math.random().toString(36).slice(2, 10)}`,
+        name,
+        input
+      )
+    );
+    return true;
+  }
+
+  private emitTextToolCallIfValid(
+    progress: vscode.Progress<vscode.LanguageModelResponsePart>,
+    call: { name?: string; index?: number; argBuffer: string; emitted?: boolean },
+    argText: string
+  ): boolean {
+    const name = call.name ?? "unknown_tool";
+    const parsed = tryParseJSONObject<Record<string, Json>>(argText);
+    if (!parsed.ok) {
+      return false;
+    }
+
+    const canonical = JSON.stringify(parsed.value);
+    const key = `${name}:${canonical}`;
+    if (typeof call.index === "number") {
+      const idKey = `${name}:${call.index}`;
+      if (this._emittedTextToolCallIds.has(idKey)) {
+        return false;
+      }
+      this._emittedTextToolCallIds.add(idKey);
+    } else if (this._emittedTextToolCallKeys.has(key)) {
+      return false;
+    }
+
+    this._emittedTextToolCallKeys.add(key);
+    const id = `tct_${Math.random().toString(36).slice(2, 10)}`;
+    progress.report(new vscode.LanguageModelToolCallPart(id, name, parsed.value));
+    return true;
+  }
+
+  private flushActiveTextToolCall(
+    progress: vscode.Progress<vscode.LanguageModelResponsePart>
+  ): Promise<void> {
+    if (!this._textToolActive) {
+      return Promise.resolve();
+    }
+    const argText = this._textToolActive.argBuffer;
+    const parsed = tryParseJSONObject<Record<string, Json>>(argText);
+    if (!parsed.ok) {
+      return Promise.resolve();
+    }
+    this.emitTextToolCallIfValid(progress, this._textToolActive, argText);
+    this._textToolActive = undefined;
+    return Promise.resolve();
+  }
+
+  /** Strip provider control tokens from visible streamed text. */
+  private stripControlTokens(text: string): string {
+    try {
+      return text
+        .replace(/<\|[a-zA-Z0-9_-]+_section_(?:begin|end)\|>/g, "")
+        .replace(/<\|tool_call_(?:argument_)?(?:begin|end)\|>/g, "");
+    } catch {
+      return text;
+    }
+  }
+
+  /**
    * Try to emit a buffered tool call when a valid name and JSON arguments are available.
    * @param index The tool call index from the stream.
    * @param progress Progress reporter for parts.
@@ -794,6 +1136,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     }
     const id = buf.id ?? `call_${Math.random().toString(36).slice(2, 10)}`;
     const parameters = canParse.value;
+    try {
+      const canonical = JSON.stringify(parameters);
+      this._emittedTextToolCallKeys.add(`${buf.name}:${canonical}`);
+    } catch {
+      // Ignore JSON serialization errors; tool call can still be emitted.
+    }
     progress.report(
       new vscode.LanguageModelToolCallPart(id, buf.name, parameters)
     );
@@ -830,6 +1178,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       const id = buf.id ?? `call_${Math.random().toString(36).slice(2, 10)}`;
       const name = buf.name ?? "unknown_tool";
       const parameters = parsed.value;
+      try {
+        const canonical = JSON.stringify(parameters);
+        this._emittedTextToolCallKeys.add(`${name}:${canonical}`);
+      } catch {
+        // Ignore JSON serialization errors; tool call can still be emitted.
+      }
       progress.report(
         new vscode.LanguageModelToolCallPart(id, name, parameters)
       );

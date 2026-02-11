@@ -11,6 +11,7 @@ import {
   validateRequest,
   estimateTokens,
   estimateMessagesTokens,
+  convertMessages,
   convertTools,
 } from "../src/utils";
 
@@ -351,5 +352,57 @@ describe("convertTools", () => {
     expect(() => convertTools(options)).toThrow(
       "LanguageModelChatToolMode.Required is not supported with more than one tool."
     );
+  });
+});
+
+describe("convertMessages", () => {
+  it("should serialize assistant tool calls as assistant message with tool_calls", () => {
+    const assistant = new vscode.LanguageModelChatMessage(
+      vscode.LanguageModelChatMessageRole.Assistant,
+      [
+        new vscode.LanguageModelTextPart("Calling tool"),
+        new vscode.LanguageModelToolCallPart("call_1", "get_weather", {
+          location: "Tokyo",
+        }),
+      ]
+    );
+
+    const result = convertMessages([assistant]);
+    expect(result.length).toBe(1);
+    expect(result[0].role).toBe("assistant");
+    expect(result[0].tool_calls?.length).toBe(1);
+    expect(result[0].tool_calls?.[0].function.name).toBe("get_weather");
+  });
+
+  it("should serialize tool results as role=tool messages", () => {
+    const userToolResult = new vscode.LanguageModelChatMessage(
+      vscode.LanguageModelChatMessageRole.User,
+      [
+        new vscode.LanguageModelToolResultPart("call_1", [
+          new vscode.LanguageModelTextPart("Sunny"),
+        ]),
+      ]
+    );
+
+    const result = convertMessages([userToolResult]);
+    expect(result.length).toBe(1);
+    expect(result[0].role).toBe("tool");
+    expect(result[0].tool_call_id).toBe("call_1");
+    expect(result[0].content).toBe("Sunny");
+  });
+
+  it("should not emit empty user messages for tool-result-only turns", () => {
+    const userToolResult = new vscode.LanguageModelChatMessage(
+      vscode.LanguageModelChatMessageRole.User,
+      [
+        new vscode.LanguageModelToolResultPart("call_1", [
+          new vscode.LanguageModelTextPart("42"),
+        ]),
+      ]
+    );
+
+    const result = convertMessages([userToolResult]);
+    expect(result.filter((m) => m.role === "user").length).toBe(0);
+    expect(result.filter((m) => m.role === "tool").length).toBe(1);
   });
 });

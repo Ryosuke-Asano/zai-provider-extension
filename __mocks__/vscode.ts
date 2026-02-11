@@ -163,6 +163,8 @@ export interface LanguageModelTool {
   inputSchema: Record<string, Json>;
 }
 
+export type LanguageModelChatTool = LanguageModelTool;
+
 // Simplified Event type for testing
 export interface Event<T> {
   listener: (e: T) => void;

@@ -185,7 +185,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     displayName: "GLM-4.7",
     // Official: GLM-4.7 supports 200K token context and up to 128K output tokens
     contextWindow: 200000,
-    maxOutput: 131072,
+    maxOutput: 128000,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
@@ -204,7 +204,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     name: "GLM-4.6",
     displayName: "GLM-4.6",
     contextWindow: 128000,
-    maxOutput: 131072,
+    maxOutput: 16000,
     supportsTools: true,
     supportsVision: true, // Native vision model
     internal: true, // Internal-only; used for vision fallback
@@ -214,7 +214,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     name: "GLM-5",
     displayName: "GLM-5",
     contextWindow: 200000,
-    maxOutput: 131072,
+    maxOutput: 128000,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },

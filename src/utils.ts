@@ -118,7 +118,11 @@ export function getToolCallInfo(
   }
   if (typeof part === "object" && part !== null) {
     const p = part as LegacyPart;
-    if (p.callId || p.name || p.type === "tool_call") {
+    const isLegacyToolCall =
+      p.type === "tool_call" ||
+      ((typeof p.name === "string" || typeof p.callId === "string") &&
+        (p.input !== undefined || p.arguments !== undefined));
+    if (isLegacyToolCall) {
       return {
         id: p.callId,
         name: p.name,
@@ -144,12 +148,23 @@ function truncateText(text: string, maxChars?: number): string {
 }
 
 function isLegacyToolResultPart(part: LegacyPart): boolean {
-  if (typeof part.callId === "string") {
-    return true;
-  }
   if (typeof part.type === "string") {
     const t = part.type.toLowerCase();
     return t === "tool_result" || t === "tool_result_part";
+  }
+  if (typeof part.callId === "string") {
+    const p = part as LegacyPart & { content?: unknown };
+    const hasResultShape =
+      p.value !== undefined ||
+      p.content !== undefined ||
+      p.type === "tool_result" ||
+      p.type === "tool_result_part";
+    const looksLikeToolCall =
+      p.name !== undefined ||
+      p.input !== undefined ||
+      p.arguments !== undefined ||
+      p.type === "tool_call";
+    return hasResultShape && !looksLikeToolCall;
   }
   return false;
 }
@@ -227,15 +242,12 @@ export function convertMessages(
   const result: ZaiChatMessage[] = [];
 
   for (const msg of messages) {
-    const zaiMsg: ZaiChatMessage = {
-      role:
-        msg.role === vscode.LanguageModelChatMessageRole.User
-          ? "user"
-          : msg.role === vscode.LanguageModelChatMessageRole.Assistant
-            ? "assistant"
-            : "system",
-      content: "",
-    };
+    const role =
+      msg.role === vscode.LanguageModelChatMessageRole.User
+        ? "user"
+        : msg.role === vscode.LanguageModelChatMessageRole.Assistant
+          ? "assistant"
+          : "system";
 
     // Collect text parts
     const textParts: string[] = [];
@@ -262,19 +274,6 @@ export function convertMessages(
       }
     }
 
-    if (imageParts.length > 0) {
-      const contentParts: ZaiContentPart[] = [];
-      const textContent = textParts.join("");
-      if (textContent) {
-        contentParts.push({ type: "text", text: textContent });
-      }
-      contentParts.push(...imageParts);
-      zaiMsg.content = contentParts;
-    } else {
-      const textContent = textParts.join("");
-      zaiMsg.content = textContent || "(empty message)";
-    }
-
     // Handle tool calls
     const toolCalls = msg.content
       .map((p) => getToolCallInfo(p))
@@ -282,38 +281,92 @@ export function convertMessages(
         (t): t is { id?: string; name?: string; args?: Json | string } => !!t
       );
 
+    let emittedAnyMessage = false;
     if (toolCalls.length > 0) {
-      zaiMsg.tool_calls = toolCalls.map((tc) => ({
-        id: tc.id ?? `call_${Math.random().toString(36).slice(2, 10)}`,
-        type: "function",
-        function: {
-          name: tc.name ?? "unknown",
-          arguments: JSON.stringify(tc.args ?? {}),
-        },
-      }));
+      const assistantContent = textParts.join("");
+      result.push({
+        role: "assistant",
+        content: assistantContent || "",
+        tool_calls: toolCalls.map((tc) => ({
+          id: tc.id ?? `call_${Math.random().toString(36).slice(2, 10)}`,
+          type: "function",
+          function: {
+            name: tc.name ?? "unknown",
+            arguments: JSON.stringify(tc.args ?? {}),
+          },
+        })),
+      });
+      emittedAnyMessage = true;
     }
 
     // Handle tool results
-    const toolResultTexts = msg.content.flatMap((p) =>
-      getToolResultTexts(p, options?.maxToolResultChars)
+    const toolResults = getToolResultEntries(
+      msg.content as Array<vscode.LanguageModelInputPart | LegacyPart>,
+      options?.maxToolResultChars
     );
-    if (toolResultTexts.length > 0) {
-      const textContent = textParts.join(" ");
-      zaiMsg.content = (textContent + "\n" + toolResultTexts.join("\n")).trim();
+    for (const tr of toolResults) {
+      result.push({
+        role: "tool",
+        tool_call_id: tr.callId,
+        content: tr.content || "",
+      });
+      emittedAnyMessage = true;
     }
 
-    // Set tool_call_id for tool result messages (legacy support)
-    const firstToolResultCallId = getFirstToolResultCallId(
-      msg.content as Array<vscode.LanguageModelInputPart | LegacyPart>
-    );
-    if (firstToolResultCallId) {
-      zaiMsg.tool_call_id = firstToolResultCallId;
+    if (
+      (textParts.length > 0 || imageParts.length > 0) &&
+      !(role === "assistant" && toolCalls.length > 0)
+    ) {
+      if (imageParts.length > 0) {
+        const contentParts: ZaiContentPart[] = [];
+        const textContent = textParts.join("");
+        if (textContent) {
+          contentParts.push({ type: "text", text: textContent });
+        }
+        contentParts.push(...imageParts);
+        result.push({ role, content: contentParts });
+      } else {
+        result.push({ role, content: textParts.join("") });
+      }
+      emittedAnyMessage = true;
     }
 
-    result.push(zaiMsg);
+    if (!emittedAnyMessage) {
+      result.push({ role, content: "(empty message)" });
+    }
   }
 
   return result;
+}
+
+function getToolResultEntries(
+  parts: Array<vscode.LanguageModelInputPart | LegacyPart>,
+  maxChars?: number
+): Array<{ callId: string; content: string }> {
+  const entries: Array<{ callId: string; content: string }> = [];
+
+  for (const part of parts) {
+    if (part instanceof vscode.LanguageModelToolResultPart) {
+      const content = getToolResultTexts(part, maxChars).join("\n").trim();
+      entries.push({ callId: part.callId, content });
+      continue;
+    }
+
+    if (typeof part !== "object" || part === null) {
+      continue;
+    }
+    const legacy = part as LegacyPart;
+    if (!isLegacyToolResultPart(legacy)) {
+      continue;
+    }
+    if (typeof legacy.callId !== "string" || !legacy.callId) {
+      continue;
+    }
+    const content = getToolResultTexts(legacy, maxChars).join("\n").trim();
+    entries.push({ callId: legacy.callId, content });
+  }
+
+  return entries;
 }
 
 export function getFirstToolResultCallId(
