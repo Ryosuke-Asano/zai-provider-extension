@@ -23,10 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `package.json` scripts for better development workflow
 - Added TypeScript ESLint dependencies
 - Updated lint script for Flat Config
+- Improved streaming tool-call parsing to handle text-embedded tool signals and strip control tokens from visible output
+- Improved OpenAI-compatible message conversion for tool-call and tool-result turns (`assistant` + `tool` role flow)
 
 ### Fixed
 
-- N/A
+- Prevented internal tool-call JSON blobs from leaking into chat output in certain streaming formats
+- Reduced request stalls when streams end with incomplete tool-call argument chunks
+- Fixed legacy part-shape detection to avoid misclassifying tool calls as tool results
 
 ## [0.5.2] - 2026-02-06
 
