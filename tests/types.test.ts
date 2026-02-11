@@ -388,6 +388,17 @@ describe("ZAI_MODELS", () => {
     expect(model?.supportsVision).toBe(true);
   });
 
+  it("should have GLM-5 model", () => {
+    const model = ZAI_MODELS.find((m) => m.id === "glm-5");
+    expect(model).toBeDefined();
+    expect(model?.name).toBe("GLM-5");
+    expect(model?.displayName).toBe("GLM-5");
+    expect(model?.supportsTools).toBe(true);
+    expect(model?.supportsVision).toBe(false);
+    expect(model?.contextWindow).toBe(200000);
+    expect(model?.maxOutput).toBe(128000);
+  });
+
   it("should all models have required fields", () => {
     ZAI_MODELS.forEach((model) => {
       expect(model.id).toBeDefined();

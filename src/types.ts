@@ -209,4 +209,13 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     supportsVision: true, // Native vision model
     internal: true, // Internal-only; used for vision fallback
   },
+  {
+    id: "glm-5",
+    name: "GLM-5",
+    displayName: "GLM-5",
+    contextWindow: 200000,
+    maxOutput: 128000,
+    supportsTools: true,
+    supportsVision: false, // Text-only model
+  },
 ];

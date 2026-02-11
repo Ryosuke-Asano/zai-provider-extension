@@ -11,6 +11,7 @@ Integrates [Z.ai](https://z.ai) (智谱AI) models into VS Code Copilot Chat with
 - **Multiple Model Support**
   - **GLM-4.7**: 200K context window, up to 128K output tokens
   - **GLM-4.7 Flash**: Faster variant with 131K max output tokens
+  - **GLM-5**: 200K context window, up to 128K output tokens
   - **GLM-4.6V**: Vision model (internal only, not exposed to users)
 
 - **Advanced Capabilities**
@@ -35,27 +36,32 @@ code --install-extension Ryosuke-Asano.zai-vscode-chat
 ### From Source
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/Ryosuke-Asano/zai-provider-extension.git
 cd zai-provider-extension
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Compile the project:
+
 ```bash
 npm run compile
 ```
 
 4. Package the extension:
+
 ```bash
 npm run package
 ```
 
 5. Install the `.vsix` file:
+
 ```bash
 code --install-extension zai-vscode-chat-*.vsix
 ```
@@ -75,29 +81,30 @@ Once configured, select Z.ai as your chat provider in VS Code Copilot Chat:
 
 - Open the Chat view (`Cmd/Ctrl + Alt + I`)
 - Click the provider selector
-- Choose a Z.ai model (GLM-4.7 or GLM-4.7 Flash)
+- Choose a Z.ai model (GLM-4.7, GLM-4.7 Flash, or GLM-5)
   - Note: GLM-4.6V is used internally for image processing and is not selectable
 
 ### Configuration
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `zai.enableThinking` | boolean | `true` | Enable thinking/reasoning process display in chat responses |
+| Setting              | Type    | Default | Description                                                 |
+| -------------------- | ------- | ------- | ----------------------------------------------------------- |
+| `zai.enableThinking` | boolean | `true`  | Enable thinking/reasoning process display in chat responses |
 
 ## Supported Models
 
 ### User-Selectable Models
 
-| Model | Context Window | Max Output | Vision | Tools |
-|-------|----------------|------------|--------|-------|
-| GLM-4.7 | 200,000 | 128,000 | No | Yes |
-| GLM-4.7 Flash | 200,000 | 131,072 | No | Yes |
+| Model         | Context Window | Max Output | Vision | Tools |
+| ------------- | -------------- | ---------- | ------ | ----- |
+| GLM-4.7       | 200,000        | 128,000    | No     | Yes   |
+| GLM-4.7 Flash | 200,000        | 131,072    | No     | Yes   |
+| GLM-5         | 200,000        | 128,000    | No     | Yes   |
 
 ### Internal Models (Not Exposed)
 
-| Model | Context Window | Max Output | Vision | Tools | Purpose |
-|-------|----------------|------------|--------|-------|---------|
-| GLM-4.6V | 128,000 | 16,000 | Yes | Yes | Image analysis fallback for non-vision models |
+| Model    | Context Window | Max Output | Vision | Tools | Purpose                                       |
+| -------- | -------------- | ---------- | ------ | ----- | --------------------------------------------- |
+| GLM-4.6V | 128,000        | 16,000     | Yes    | Yes   | Image analysis fallback for non-vision models |
 
 ## MCP Integration
 
@@ -153,6 +160,7 @@ src/
 ### API Key Issues
 
 If you see authentication errors:
+
 1. Run `Z.ai: Manage Z.ai Provider`
 2. Verify your API key is correct
 3. Ensure your API key has active credits
@@ -160,6 +168,7 @@ If you see authentication errors:
 ### Vision Not Working
 
 For non-vision models (GLM-4.7, GLM-4.7 Flash):
+
 - Images are automatically converted to text descriptions using GLM-OCR MCP
 - If GLM-OCR fails, the extension internally uses GLM-4.6V for image analysis
 - GLM-4.6V is **not selectable** by users—it is only used as an internal fallback
@@ -167,6 +176,7 @@ For non-vision models (GLM-4.7, GLM-4.7 Flash):
 ### Large Context Errors
 
 If you encounter token limit errors:
+
 - Reduce the amount of code/context in your message
 - The extension enforces model-specific context limits
 
