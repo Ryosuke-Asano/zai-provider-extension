@@ -15,6 +15,15 @@ export function activate(context: vscode.ExtensionContext) {
   const provider = new ZaiChatModelProvider(context.secrets, ua);
   _provider = provider;
 
+  // Refresh model list when API key is changed outside the management command.
+  context.subscriptions.push(
+    context.secrets.onDidChange((e) => {
+      if (e.key === "zai.apiKey") {
+        _provider?.fireModelInfoChanged();
+      }
+    })
+  );
+
   // Register the Z.ai provider under the vendor id used in package.json
   const registration = vscode.lm.registerLanguageModelChatProvider(
     "zai",
@@ -44,6 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!apiKey.trim()) {
         await context.secrets.delete("zai.apiKey");
         vscode.window.showInformationMessage("Z.ai API key cleared.");
+        _provider?.fireModelInfoChanged();
         return;
       }
       await context.secrets.store("zai.apiKey", apiKey.trim());

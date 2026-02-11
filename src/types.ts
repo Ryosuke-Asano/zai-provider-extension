@@ -172,6 +172,7 @@ export interface ZaiRequestBody {
   frequency_penalty?: number;
   presence_penalty?: number;
   tools?: ZaiTool[];
+  tool_choice?: "auto" | "none" | { type: string; function: { name: string } };
 }
 
 /**

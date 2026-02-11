@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 /**
  * Unit tests for MCP client in mcp.ts
  */

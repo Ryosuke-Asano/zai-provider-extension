@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 /**
  * Unit tests for utility functions in utils.ts
  */
@@ -10,6 +11,7 @@ import {
   validateRequest,
   estimateTokens,
   estimateMessagesTokens,
+  convertTools,
 } from "../src/utils";
 
 /**
@@ -275,5 +277,79 @@ describe("estimateMessagesTokens", () => {
     // Images: 2 * 1500 = 3000
     // Total: 3031 / 4 ≈ 758
     expect(tokens).toBeGreaterThan(3000);
+  });
+});
+
+describe("convertTools", () => {
+  const weatherTool: realVscode.LanguageModelChatTool = {
+    name: "get_weather",
+    description: "Get weather",
+    inputSchema: {
+      type: "object",
+      properties: {
+        location: { type: "string" },
+      },
+      required: ["location"],
+    },
+  };
+
+  it("should return empty config when no tools are provided", () => {
+    const options = {} as realVscode.ProvideLanguageModelChatResponseOptions;
+    expect(convertTools(options)).toEqual({});
+  });
+
+  it("should return auto tool_choice in auto mode", () => {
+    const options = {
+      tools: [weatherTool],
+      toolMode: vscode.LanguageModelChatToolMode.Auto,
+    } as realVscode.ProvideLanguageModelChatResponseOptions;
+
+    const result = convertTools(options);
+    expect(result.tools).toBeDefined();
+    expect(result.tools?.length).toBe(1);
+    expect(result.tool_choice).toBe("auto");
+  });
+
+  it("should default tool_choice to auto when toolMode is not provided", () => {
+    const options = {
+      tools: [weatherTool],
+    } as unknown as realVscode.ProvideLanguageModelChatResponseOptions;
+
+    const result = convertTools(options);
+    expect(result.tool_choice).toBe("auto");
+  });
+
+  it("should force a specific function in required mode with one tool", () => {
+    const options = {
+      tools: [weatherTool],
+      toolMode: vscode.LanguageModelChatToolMode.Required,
+    } as realVscode.ProvideLanguageModelChatResponseOptions;
+
+    const result = convertTools(options);
+    expect(result.tool_choice).toEqual({
+      type: "function",
+      function: { name: "get_weather" },
+    });
+  });
+
+  it("should throw in required mode with no tools", () => {
+    const options = {
+      toolMode: vscode.LanguageModelChatToolMode.Required,
+    } as realVscode.ProvideLanguageModelChatResponseOptions;
+
+    expect(() => convertTools(options)).toThrow(
+      "LanguageModelChatToolMode.Required requires at least one tool."
+    );
+  });
+
+  it("should throw in required mode with multiple tools", () => {
+    const options = {
+      tools: [weatherTool, { ...weatherTool, name: "get_time" }],
+      toolMode: vscode.LanguageModelChatToolMode.Required,
+    } as realVscode.ProvideLanguageModelChatResponseOptions;
+
+    expect(() => convertTools(options)).toThrow(
+      "LanguageModelChatToolMode.Required is not supported with more than one tool."
+    );
   });
 });

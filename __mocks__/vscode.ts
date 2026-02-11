@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 /**
  * Mock for VS Code API
  * This provides minimal implementations for testing purposes
@@ -63,6 +64,11 @@ export class LanguageModelToolResultPart {
       | Json
     >
   ) {}
+}
+
+export enum LanguageModelChatToolMode {
+  Auto = 1,
+  Required = 2,
 }
 
 export type LanguageModelInputPart =
@@ -135,7 +141,7 @@ export interface LanguageModelChatInformation {
   maxInputTokens: number;
   maxOutputTokens: number;
   capabilities: {
-    toolCalling?: boolean;
+    toolCalling?: boolean | number;
     imageInput?: boolean;
   };
 }
@@ -148,6 +154,7 @@ export interface ProvideLanguageModelChatResponseOptions {
     stop?: string | string[];
   };
   tools?: readonly LanguageModelTool[];
+  toolMode?: LanguageModelChatToolMode;
 }
 
 export interface LanguageModelTool {

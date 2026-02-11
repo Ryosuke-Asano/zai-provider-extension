@@ -340,13 +340,19 @@ export function convertTools(
   options: vscode.ProvideLanguageModelChatResponseOptions
 ): {
   tools?: ZaiTool[];
-  tool_choice?: "auto" | "none" | { type: string; function: { name: string } };
+  tool_choice?: "auto" | { type: "function"; function: { name: string } };
 } {
-  if (!options.tools || options.tools.length === 0) {
+  const toolsInput = options.tools ?? [];
+  if (toolsInput.length === 0) {
+    if (options.toolMode === vscode.LanguageModelChatToolMode.Required) {
+      throw new Error(
+        "LanguageModelChatToolMode.Required requires at least one tool."
+      );
+    }
     return {};
   }
 
-  const tools: ZaiTool[] = options.tools.map((tool) => ({
+  const tools: ZaiTool[] = toolsInput.map((tool) => ({
     type: "function",
     function: {
       name: tool.name,
@@ -355,7 +361,22 @@ export function convertTools(
     },
   }));
 
-  return { tools };
+  let tool_choice: "auto" | { type: "function"; function: { name: string } } =
+    "auto";
+
+  if (options.toolMode === vscode.LanguageModelChatToolMode.Required) {
+    if (tools.length !== 1) {
+      throw new Error(
+        "LanguageModelChatToolMode.Required is not supported with more than one tool."
+      );
+    }
+    tool_choice = {
+      type: "function",
+      function: { name: tools[0].function.name },
+    };
+  }
+
+  return { tools, tool_choice };
 }
 
 /**

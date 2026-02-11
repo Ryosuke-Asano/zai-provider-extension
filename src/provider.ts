@@ -32,6 +32,7 @@ import { ZaiMcpClient } from "./mcp";
 
 const BASE_URL = "https://api.z.ai/api/coding/paas/v4";
 const MAX_TOOL_RESULT_CHARS = 20000;
+const MAX_TOOLS_PER_REQUEST = 128;
 
 /**
  * VS Code Chat provider backed by Z.ai API.
@@ -72,6 +73,27 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
    */
   fireModelInfoChanged(): void {
     this._onDidChangeLanguageModelChatInformation.fire();
+  }
+
+  /**
+   * Convert HTTP status codes from upstream to LanguageModelError when possible.
+   */
+  private toLanguageModelError(
+    status: number,
+    statusText: string,
+    details: string
+  ): Error {
+    const message = `Z.ai API error: ${status} ${statusText}${details ? `\n${details}` : ""}`;
+    if (status === 401 || status === 403) {
+      return vscode.LanguageModelError.NoPermissions(message);
+    }
+    if (status === 404) {
+      return vscode.LanguageModelError.NotFound(message);
+    }
+    if (status === 429) {
+      return vscode.LanguageModelError.Blocked(message);
+    }
+    return new Error(message);
   }
 
   /**
@@ -163,7 +185,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           maxInputTokens: Math.max(1, model.contextWindow - model.maxOutput),
           maxOutputTokens: model.maxOutput,
           capabilities: {
-            toolCalling: model.supportsTools,
+            toolCalling: model.supportsTools ? MAX_TOOLS_PER_REQUEST : false,
             imageInput: true, // Image input allowed; non-vision models auto-route
           },
         };
@@ -219,6 +241,20 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   }
 
   /**
+   * Rough token estimate for tool definitions by JSON size.
+   */
+  private estimateToolTokens(tools: ZaiRequestBody["tools"]): number {
+    if (!tools || tools.length === 0) {
+      return 0;
+    }
+    try {
+      return Math.ceil(JSON.stringify(tools).length / 4);
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
    * Pre-process messages to handle images
    * Converts images to text descriptions using GLM-OCR MCP
    */
@@ -263,7 +299,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       const thisMessageDescriptions: string[] = [];
       for (const img of images) {
         if (token.isCancellationRequested) {
-          throw new Error("Cancelled");
+          throw new vscode.CancellationError();
         }
 
         const base64Data = Buffer.from(img.data).toString("base64");
@@ -318,6 +354,10 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     this._toolCallBuffers.clear();
     this._completedToolCallIndices.clear();
     this._hasEmittedAssistantText = false;
+    const abortController = new AbortController();
+    const cancellationSubscription = token.onCancellationRequested(() => {
+      abortController.abort();
+    });
 
     const trackingProgress: Progress<LanguageModelResponsePart> = {
       report: (part) => {
@@ -338,7 +378,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     try {
       const apiKey = await this.ensureApiKey(true);
       if (!apiKey) {
-        throw new Error("Z.ai API key not found");
+        throw vscode.LanguageModelError.NoPermissions("Z.ai API key not found");
       }
 
       const hasImages = this.hasImageInput(messages);
@@ -371,21 +411,23 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         }
       }
 
+      if (options.tools && options.tools.length > MAX_TOOLS_PER_REQUEST) {
+        throw new Error(
+          `Cannot have more than ${MAX_TOOLS_PER_REQUEST} tools per request.`
+        );
+      }
+
+      const toolConfig = convertTools(options);
       const zaiMessages = convertMessages(processedMessages, {
         maxToolResultChars: MAX_TOOL_RESULT_CHARS,
       });
       validateRequest(processedMessages);
 
-      const toolConfig = convertTools(options);
-
-      if (options.tools && options.tools.length > 128) {
-        throw new Error("Cannot have more than 128 tools per request.");
-      }
-
       // Estimate tokens (rough approximation)
       const inputTokenCount = estimateMessagesTokens(processedMessages, {
         maxToolResultChars: MAX_TOOL_RESULT_CHARS,
       });
+      const toolTokenCount = this.estimateToolTokens(toolConfig.tools);
       const effectiveModelInfo = this.getModelInfo(effectiveModelId);
       const tokenLimit = Math.max(
         1,
@@ -393,9 +435,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           ? effectiveModelInfo.contextWindow - effectiveModelInfo.maxOutput
           : model.maxInputTokens
       );
-      if (inputTokenCount > tokenLimit) {
+      const totalEstimatedTokens = inputTokenCount + toolTokenCount;
+      if (totalEstimatedTokens > tokenLimit) {
         console.error("[Z.ai Model Provider] Message exceeds token limit", {
-          total: inputTokenCount,
+          total: totalEstimatedTokens,
+          messageTokens: inputTokenCount,
+          toolTokens: toolTokenCount,
           tokenLimit,
         });
         throw new Error("Message exceeds token limit.");
@@ -445,14 +490,20 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       if (toolConfig.tools) {
         requestBody.tools = toolConfig.tools;
       }
+      if (toolConfig.tool_choice) {
+        requestBody.tool_choice = toolConfig.tool_choice;
+      }
 
       console.log("[Z.ai Model Provider] 🚀 Starting chat request", {
-        model: model.id,
+        model: effectiveModelId,
         messageCount: messages.length,
         thinkingEnabled: this.isThinkingEnabled(),
         timestamp: new Date().toISOString(),
       });
 
+      if (token.isCancellationRequested) {
+        throw new vscode.CancellationError();
+      }
       const response = await fetch(`${BASE_URL}/chat/completions`, {
         method: "POST",
         headers: {
@@ -460,14 +511,17 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           "Content-Type": "application/json",
           "User-Agent": this.userAgent,
         },
+        signal: abortController.signal,
         body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error("[Z.ai Model Provider] API error response", errorText);
-        throw new Error(
-          `Z.ai API error: ${response.status} ${response.statusText}${errorText ? `\n${errorText}` : ""}`
+        throw this.toLanguageModelError(
+          response.status,
+          response.statusText,
+          errorText
         );
       }
 
@@ -481,6 +535,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         token
       );
     } catch (err) {
+      if (
+        token.isCancellationRequested ||
+        (err instanceof Error && err.name === "AbortError")
+      ) {
+        throw new vscode.CancellationError();
+      }
       console.error("[Z.ai Model Provider] Chat request failed", {
         modelId: model.id,
         messageCount: messages.length,
@@ -490,6 +550,8 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
             : String(err),
       });
       throw err;
+    } finally {
+      cancellationSubscription.dispose();
     }
   }
 
