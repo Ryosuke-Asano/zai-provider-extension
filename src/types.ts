@@ -124,41 +124,6 @@ export interface ZaiModelInfo {
 }
 
 /**
- * Z.ai MCP server configuration
- */
-export interface ZaiMcpServer {
-  type: "http" | "stdio";
-  url?: string;
-  command?: string;
-  args?: string[];
-  headers?: Record<string, string>;
-  env?: Record<string, string>;
-}
-
-/**
- * Z.ai MCP configuration
- */
-export const ZAI_MCP_SERVERS: Record<string, ZaiMcpServer> = {
-  "web-search-prime": {
-    type: "http",
-    url: "https://api.z.ai/api/mcp/web_search_prime/mcp",
-  },
-  "web-reader": {
-    type: "http",
-    url: "https://api.z.ai/api/mcp/web_reader/mcp",
-  },
-  zread: {
-    type: "http",
-    url: "https://api.z.ai/api/mcp/zread/mcp",
-  },
-  // Vision MCP for non-Vision models
-  "vision-mcp": {
-    type: "http",
-    url: "https://api.z.ai/api/mcp/vision/mcp",
-  },
-};
-
-/**
  * A strongly-typed request body used for Z.ai Chat API requests
  */
 export interface ZaiRequestBody {
@@ -180,12 +145,38 @@ export interface ZaiRequestBody {
  */
 export const ZAI_MODELS: ZaiModelInfo[] = [
   {
+    id: "glm-4.5",
+    name: "GLM-4.5",
+    displayName: "GLM-4.5",
+    contextWindow: 131000,
+    maxOutput: 98000,
+    supportsTools: true,
+    supportsVision: false, // Text-only model
+  },
+  {
+    id: "glm-4.5-air",
+    name: "GLM-4.5 Air",
+    displayName: "GLM-4.5 Air",
+    contextWindow: 131000,
+    maxOutput: 98000,
+    supportsTools: true,
+    supportsVision: false, // Text-only model
+  },
+  {
+    id: "glm-4.6",
+    name: "GLM-4.6",
+    displayName: "GLM-4.6",
+    contextWindow: 200000,
+    maxOutput: 131000,
+    supportsTools: true,
+    supportsVision: false, // Text-only model
+  },
+  {
     id: "glm-4.7",
     name: "GLM-4.7",
     displayName: "GLM-4.7",
-    // Official: GLM-4.7 supports 200K token context and up to 128K output tokens
     contextWindow: 200000,
-    maxOutput: 128000,
+    maxOutput: 131000,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
@@ -193,28 +184,26 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-4.7-flash",
     name: "GLM-4.7 Flash",
     displayName: "GLM-4.7 Flash",
-    // Model card shows default max_new_tokens = 131072; use 200K context window
     contextWindow: 200000,
-    maxOutput: 131072,
+    maxOutput: 131000,
     supportsTools: true,
     supportsVision: false, // No vision support
-  },
-  {
-    id: "glm-4.6v",
-    name: "GLM-4.6",
-    displayName: "GLM-4.6",
-    contextWindow: 128000,
-    maxOutput: 16000,
-    supportsTools: true,
-    supportsVision: true, // Native vision model
-    internal: true, // Internal-only; used for vision fallback
   },
   {
     id: "glm-5",
     name: "GLM-5",
     displayName: "GLM-5",
     contextWindow: 200000,
-    maxOutput: 128000,
+    maxOutput: 131000,
+    supportsTools: true,
+    supportsVision: false, // Text-only model
+  },
+  {
+    id: "glm-5-code",
+    name: "GLM-5-Code",
+    displayName: "GLM-5-Code",
+    contextWindow: 200000,
+    maxOutput: 131000,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
