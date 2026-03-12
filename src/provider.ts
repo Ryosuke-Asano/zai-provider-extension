@@ -457,17 +457,20 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       const effectiveModelInfo = this.getModelInfo(effectiveModelId);
       const mo = options.modelOptions as Record<string, Json> | undefined;
       const maxTokensVal =
-        typeof mo?.max_tokens === "number"
-          ? mo.max_tokens
-          : DEFAULT_MAX_TOKENS;
+        typeof mo?.max_tokens === "number" ? mo.max_tokens : DEFAULT_MAX_TOKENS;
       const temperatureVal =
         typeof mo?.temperature === "number" ? mo.temperature : 0.7;
       const effectiveMaxOutputTokens =
         effectiveModelInfo?.maxOutput ?? model.maxOutputTokens;
-      const requestedMaxTokens = Math.min(maxTokensVal, effectiveMaxOutputTokens);
+      const requestedMaxTokens = Math.min(
+        maxTokensVal,
+        effectiveMaxOutputTokens
+      );
       const tokenLimit = Math.max(
         1,
-        effectiveModelInfo ? effectiveModelInfo.contextWindow : model.maxInputTokens
+        effectiveModelInfo
+          ? effectiveModelInfo.contextWindow
+          : model.maxInputTokens
       );
       const totalEstimatedTokens = inputTokenCount + toolTokenCount;
       if (totalEstimatedTokens > tokenLimit) {
@@ -865,7 +868,10 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           const lines = data.split(/\r?\n/);
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            const emittedJsonTool = this.tryEmitJsonToolCallLine(line, progress);
+            const emittedJsonTool = this.tryEmitJsonToolCallLine(
+              line,
+              progress
+            );
             if (emittedJsonTool) {
               emittedAny = true;
               continue;
@@ -1006,11 +1012,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
 
     let input: Record<string, Json> | undefined;
     const inputVal = obj.input;
-    if (
-      inputVal &&
-      typeof inputVal === "object" &&
-      !Array.isArray(inputVal)
-    ) {
+    if (inputVal && typeof inputVal === "object" && !Array.isArray(inputVal)) {
       input = inputVal as Record<string, Json>;
     }
 
@@ -1061,7 +1063,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
 
   private emitTextToolCallIfValid(
     progress: vscode.Progress<vscode.LanguageModelResponsePart>,
-    call: { name?: string; index?: number; argBuffer: string; emitted?: boolean },
+    call: {
+      name?: string;
+      index?: number;
+      argBuffer: string;
+      emitted?: boolean;
+    },
     argText: string
   ): boolean {
     const name = call.name ?? "unknown_tool";
@@ -1084,7 +1091,9 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
 
     this._emittedTextToolCallKeys.add(key);
     const id = `tct_${Math.random().toString(36).slice(2, 10)}`;
-    progress.report(new vscode.LanguageModelToolCallPart(id, name, parsed.value));
+    progress.report(
+      new vscode.LanguageModelToolCallPart(id, name, parsed.value)
+    );
     return true;
   }
 
