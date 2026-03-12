@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import packageJson from "../package.json";
 import { ZaiChatModelProvider } from "./provider";
+import { registerZaiTools } from "./tools";
 
 // Global provider reference for API key management
 let _provider: ZaiChatModelProvider | null = null;
@@ -32,6 +33,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(registration);
 
   console.log("[Z.ai Provider] Z.ai provider registered successfully");
+
+  // Register Z.ai tools (vision analysis, etc.) for Copilot to use
+  const toolsRegistration = registerZaiTools(context.secrets);
+  context.subscriptions.push(toolsRegistration);
+
+  console.log("[Z.ai Provider] Z.ai tools registered successfully");
 
   // Management command to configure API key
   context.subscriptions.push(

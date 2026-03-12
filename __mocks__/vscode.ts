@@ -157,6 +157,17 @@ export interface ProvideLanguageModelChatResponseOptions {
   toolMode?: LanguageModelChatToolMode;
 }
 
+export interface PrepareLanguageModelChatModelOptions {
+  silent: boolean;
+}
+
+export interface LanguageModelChatProvider<T = LanguageModelChatInformation> {
+  provideLanguageModelChatInformation(
+    options: PrepareLanguageModelChatModelOptions,
+    token: CancellationToken
+  ): Promise<T[]> | T[];
+}
+
 export interface LanguageModelTool {
   name: string;
   description: string;
@@ -165,23 +176,77 @@ export interface LanguageModelTool {
 
 export type LanguageModelChatTool = LanguageModelTool;
 
-// Simplified Event type for testing
-export interface Event<T> {
-  listener: (e: T) => void;
+export interface Disposable {
+  dispose(): void;
+}
+
+export type Event<T> = (listener: (e: T) => void) => Disposable;
+
+export class EventEmitter<T> {
+  private listeners: Array<(e: T) => void> = [];
+
+  readonly event: Event<T> = (listener) => {
+    this.listeners.push(listener);
+    return {
+      dispose: () => {
+        this.listeners = this.listeners.filter((l) => l !== listener);
+      },
+    };
+  };
+
+  fire(data: T): void {
+    for (const listener of this.listeners) {
+      listener(data);
+    }
+  }
+
+  dispose(): void {
+    this.listeners = [];
+  }
 }
 
 export interface CancellationToken {
   isCancellationRequested: boolean;
-  readonly onCancellationRequested: Event<void>;
+  readonly onCancellationRequested: (listener: () => void) => Disposable;
 }
 
 export interface Progress<T> {
   report(part: T): void;
 }
 
-export interface LanguageModelResponsePart {
-  type: "text" | "tool_call" | "tool_result" | "image";
-  value: string;
+export type LanguageModelResponsePart =
+  | LanguageModelTextPart
+  | LanguageModelToolCallPart
+  | LanguageModelToolResultPart
+  | LanguageModelDataPart;
+
+export class CancellationError extends Error {
+  constructor() {
+    super("Operation cancelled");
+    this.name = "CancellationError";
+  }
+}
+
+export class LanguageModelError extends Error {
+  constructor(
+    message?: string,
+    public readonly code: string = "LanguageModelError"
+  ) {
+    super(message);
+    this.name = "LanguageModelError";
+  }
+
+  static NoPermissions(message?: string): LanguageModelError {
+    return new LanguageModelError(message, "NoPermissions");
+  }
+
+  static NotFound(message?: string): LanguageModelError {
+    return new LanguageModelError(message, "NotFound");
+  }
+
+  static Blocked(message?: string): LanguageModelError {
+    return new LanguageModelError(message, "Blocked");
+  }
 }
 
 export class SecretStorage {
@@ -215,7 +280,9 @@ export const window = {
 };
 
 export const workspace = {
-  getConfiguration: jest.fn(),
+  getConfiguration: jest.fn((_section?: string) => ({
+    get: <T>(_section: string, defaultValue: T): T => defaultValue,
+  })),
 };
 
 export const extensions = {

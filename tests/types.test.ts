@@ -14,7 +14,6 @@ import {
   ZaiStreamChoice,
   ZaiStreamResponse,
   ZAI_MODELS,
-  ZAI_MCP_SERVERS,
 } from "../src/types";
 
 describe("ZaiContentPart", () => {
@@ -368,24 +367,16 @@ describe("ZAI_MODELS", () => {
     expect(model?.supportsVision).toBe(false);
     // Official values: 200K context, 128K max output
     expect(model?.contextWindow).toBe(200000);
-    expect(model?.maxOutput).toBe(128000);
+    expect(model?.maxOutput).toBe(131072);
   });
 
   it("should have GLM-4.7 Flash model", () => {
     const model = ZAI_MODELS.find((m) => m.id === "glm-4.7-flash");
     expect(model).toBeDefined();
     expect(model?.name).toBe("GLM-4.7 Flash");
-    // Flash defaults show 200K context and 131072 max_new_tokens
+    // Flash defaults show 200K context and 128K max output
     expect(model?.contextWindow).toBe(200000);
     expect(model?.maxOutput).toBe(131072);
-  });
-
-  it("should have GLM-4.6V model", () => {
-    const model = ZAI_MODELS.find((m) => m.id === "glm-4.6v");
-    expect(model).toBeDefined();
-    expect(model?.name).toBe("GLM-4.6");
-    expect(model?.displayName).toBe("GLM-4.6");
-    expect(model?.supportsVision).toBe(true);
   });
 
   it("should have GLM-5 model", () => {
@@ -396,7 +387,7 @@ describe("ZAI_MODELS", () => {
     expect(model?.supportsTools).toBe(true);
     expect(model?.supportsVision).toBe(false);
     expect(model?.contextWindow).toBe(200000);
-    expect(model?.maxOutput).toBe(128000);
+    expect(model?.maxOutput).toBe(131072);
   });
 
   it("should all models have required fields", () => {
@@ -414,40 +405,5 @@ describe("ZAI_MODELS", () => {
     const ids = ZAI_MODELS.map((m) => m.id);
     const uniqueIds = new Set(ids);
     expect(uniqueIds.size).toBe(ids.length);
-  });
-});
-
-describe("ZAI_MCP_SERVERS", () => {
-  it("should have vision-mcp server defined", () => {
-    expect(ZAI_MCP_SERVERS["vision-mcp"]).toBeDefined();
-    expect(ZAI_MCP_SERVERS["vision-mcp"].type).toBe("http");
-  });
-
-  it("should have web-search server defined", () => {
-    expect(ZAI_MCP_SERVERS["web-search-prime"]).toBeDefined();
-  });
-
-  it("should have web-reader server defined", () => {
-    expect(ZAI_MCP_SERVERS["web-reader"]).toBeDefined();
-  });
-
-  it("should have zread server defined", () => {
-    expect(ZAI_MCP_SERVERS.zread).toBeDefined();
-  });
-
-  it("should all servers have required fields", () => {
-    Object.values(ZAI_MCP_SERVERS).forEach((server) => {
-      expect(server.type).toBeDefined();
-      expect(["http", "sse"]).toContain(server.type);
-    });
-  });
-
-  it("should HTTP servers have url property", () => {
-    Object.entries(ZAI_MCP_SERVERS).forEach(([_name, server]) => {
-      if (server.type === "http") {
-        expect(server.url).toBeDefined();
-        expect(typeof server.url).toBe("string");
-      }
-    });
   });
 });

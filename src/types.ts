@@ -148,8 +148,8 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-4.5",
     name: "GLM-4.5",
     displayName: "GLM-4.5",
-    contextWindow: 131000,
-    maxOutput: 98000,
+    contextWindow: 131072,
+    maxOutput: 98304,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
@@ -157,8 +157,8 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-4.5-air",
     name: "GLM-4.5 Air",
     displayName: "GLM-4.5 Air",
-    contextWindow: 131000,
-    maxOutput: 98000,
+    contextWindow: 131072,
+    maxOutput: 98304,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
@@ -167,7 +167,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     name: "GLM-4.6",
     displayName: "GLM-4.6",
     contextWindow: 200000,
-    maxOutput: 131000,
+    maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
@@ -176,7 +176,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     name: "GLM-4.7",
     displayName: "GLM-4.7",
     contextWindow: 200000,
-    maxOutput: 131000,
+    maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
@@ -185,7 +185,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     name: "GLM-4.7 Flash",
     displayName: "GLM-4.7 Flash",
     contextWindow: 200000,
-    maxOutput: 131000,
+    maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // No vision support
   },
@@ -194,7 +194,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     name: "GLM-5",
     displayName: "GLM-5",
     contextWindow: 200000,
-    maxOutput: 131000,
+    maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },

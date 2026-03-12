@@ -33,6 +33,7 @@ import { ZaiMcpClient } from "./mcp";
 const BASE_URL = "https://api.z.ai/api/coding/paas/v4";
 const MAX_TOOL_RESULT_CHARS = 20000;
 const MAX_TOOLS_PER_REQUEST = 128;
+const DEFAULT_MAX_TOKENS = 65536;
 
 /**
  * VS Code Chat provider backed by Z.ai API.
@@ -202,7 +203,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           tooltip: `Z.ai ${model.name}`,
           family: "zai",
           version: "1.0.0",
-          maxInputTokens: Math.max(1, model.contextWindow - model.maxOutput),
+          maxInputTokens: Math.max(1, model.contextWindow),
           maxOutputTokens: model.maxOutput,
           capabilities: {
             toolCalling: model.supportsTools ? MAX_TOOLS_PER_REQUEST : false,
@@ -454,11 +455,19 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       });
       const toolTokenCount = this.estimateToolTokens(toolConfig.tools);
       const effectiveModelInfo = this.getModelInfo(effectiveModelId);
+      const mo = options.modelOptions as Record<string, Json> | undefined;
+      const maxTokensVal =
+        typeof mo?.max_tokens === "number"
+          ? mo.max_tokens
+          : DEFAULT_MAX_TOKENS;
+      const temperatureVal =
+        typeof mo?.temperature === "number" ? mo.temperature : 0.7;
+      const effectiveMaxOutputTokens =
+        effectiveModelInfo?.maxOutput ?? model.maxOutputTokens;
+      const requestedMaxTokens = Math.min(maxTokensVal, effectiveMaxOutputTokens);
       const tokenLimit = Math.max(
         1,
-        effectiveModelInfo
-          ? effectiveModelInfo.contextWindow - effectiveModelInfo.maxOutput
-          : model.maxInputTokens
+        effectiveModelInfo ? effectiveModelInfo.contextWindow : model.maxInputTokens
       );
       const totalEstimatedTokens = inputTokenCount + toolTokenCount;
       if (totalEstimatedTokens > tokenLimit) {
@@ -467,23 +476,15 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           messageTokens: inputTokenCount,
           toolTokens: toolTokenCount,
           tokenLimit,
+          requestedMaxTokens,
         });
         throw new Error("Message exceeds token limit.");
       }
-
-      const mo = options.modelOptions as Record<string, Json> | undefined;
-      const maxTokensVal =
-        typeof mo?.max_tokens === "number" ? mo.max_tokens : 4096;
-      const temperatureVal =
-        typeof mo?.temperature === "number" ? mo.temperature : 0.7;
-
-      const effectiveMaxOutputTokens =
-        effectiveModelInfo?.maxOutput ?? model.maxOutputTokens;
       const requestBody: ZaiRequestBody = {
         model: effectiveModelId,
         messages: zaiMessages,
         stream: true,
-        max_tokens: Math.min(maxTokensVal, effectiveMaxOutputTokens),
+        max_tokens: requestedMaxTokens,
         temperature: temperatureVal,
       };
 

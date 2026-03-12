@@ -37,6 +37,14 @@
         "managementCommand": "zai.manage"
       }
     ],
+    "languageModelTools": [
+      {
+        "name": "zai_analyze_image",
+        "displayName": "Analyze Image with Z.ai Vision",
+        "description": "Analyze an image using Z.ai Vision model. Use this tool when you need to understand or describe the content of an image, extract text from images (OCR), or answer questions about visual content.",
+        "icon": "$(eye)"
+      }
+    ],
     "commands": [
       {
         "command": "zai.manage",
