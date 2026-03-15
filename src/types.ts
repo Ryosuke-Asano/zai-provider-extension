@@ -199,6 +199,24 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     supportsVision: false, // Text-only model
   },
   {
+    id: "pony-alpha-2",
+    name: "GLM-5-Turbo (Early Access)",
+    displayName: "GLM-5-Turbo (Early Access)",
+    contextWindow: 200000,
+    maxOutput: 131072,
+    supportsTools: true,
+    supportsVision: false, // Text-only model
+  },
+  {
+    id: "glm-5-turbo",
+    name: "glm-5-turbo",
+    displayName: "GLM-5-Turbo",
+    contextWindow: 200000,
+    maxOutput: 131072,
+    supportsTools: true,
+    supportsVision: false, // Text-only model
+  },
+  {
     id: "glm-5-code",
     name: "GLM-5-Code",
     displayName: "GLM-5-Code",
