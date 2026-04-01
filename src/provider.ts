@@ -77,6 +77,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   /** Buffer for reasoning content from thinking mode */
   private _reasoningContentBuffer = "";
 
+  /** Track token usage from API responses */
+  private _usageMetrics: { prompt_tokens: number; completion_tokens: number } = {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+  };
+
   /** Debug counter */
   private _debugCallCount = 0;
 
@@ -381,6 +387,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     this._textToolActive = undefined;
     this._emittedTextToolCallKeys.clear();
     this._emittedTextToolCallIds.clear();
+    this._usageMetrics = { prompt_tokens: 0, completion_tokens: 0 };
     const abortController = new AbortController();
     const cancellationSubscription = token.onCancellationRequested(() => {
       abortController.abort();
@@ -685,11 +692,22 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
             // Do not throw on DONE for incomplete tool call JSON.
             await this.flushToolCallBuffers(progress, false);
             await this.flushActiveTextToolCall(progress);
+            // Report usage metrics
+            this.reportUsageMetrics(progress);
             continue;
           }
 
           try {
             const parsed = JSON.parse(data) as ZaiStreamResponse;
+            // Track usage metrics from the response
+            if (parsed.usage) {
+              if (parsed.usage.prompt_tokens !== undefined) {
+                this._usageMetrics.prompt_tokens = parsed.usage.prompt_tokens;
+              }
+              if (parsed.usage.completion_tokens !== undefined) {
+                this._usageMetrics.completion_tokens = parsed.usage.completion_tokens;
+              }
+            }
             await this.processDelta(parsed, progress);
           } catch {
             // Silently ignore malformed SSE lines temporarily
@@ -709,6 +727,24 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       this._emittedTextToolCallIds.clear();
       this._hasEmittedThinkingContent = false;
       this._reasoningContentBuffer = "";
+      this._usageMetrics = { prompt_tokens: 0, completion_tokens: 0 };
+    }
+  }
+
+  /**
+   * Report usage metrics to VS Code Chat UI
+   */
+  private reportUsageMetrics(
+    progress: vscode.Progress<vscode.LanguageModelResponsePart>
+  ): void {
+    if (this._usageMetrics.prompt_tokens > 0 || this._usageMetrics.completion_tokens > 0) {
+      console.log("[Z.ai Model Provider] Token usage metrics", {
+        prompt_tokens: this._usageMetrics.prompt_tokens,
+        completion_tokens: this._usageMetrics.completion_tokens,
+        total_tokens:
+          this._usageMetrics.prompt_tokens +
+          this._usageMetrics.completion_tokens,
+      });
     }
   }
 

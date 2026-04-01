@@ -103,6 +103,11 @@ export interface ZaiStreamResponse {
   created: number;
   model: string;
   choices: ZaiStreamChoice[];
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
 }
 
 /**
