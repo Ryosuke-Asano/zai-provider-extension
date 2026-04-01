@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-04-02
+
+### Changed
+
+- Reverted internal vision fallback to GLM-4.6V (some plans don't support GLM-5V-Turbo yet)
+- GLM-5V-Turbo remains as a user-selectable multimodal coding model
+
 ## [0.7.4] - 2026-04-02
 
 ### Changed
