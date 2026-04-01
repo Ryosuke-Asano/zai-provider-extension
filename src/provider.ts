@@ -23,11 +23,13 @@ import {
   convertMessages,
   convertTools,
   tryParseJSONObject,
+  estimateTokens,
   validateRequest,
   estimateMessagesTokens,
   getTextPartValue,
   extractImageData,
 } from "./utils";
+import type { LegacyPart } from "./utils";
 import { ZaiMcpClient } from "./mcp";
 
 const BASE_URL = "https://api.z.ai/api/coding/paas/v4";
@@ -78,10 +80,11 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   private _reasoningContentBuffer = "";
 
   /** Track token usage from API responses */
-  private _usageMetrics: { prompt_tokens: number; completion_tokens: number } = {
-    prompt_tokens: 0,
-    completion_tokens: 0,
-  };
+  private _usageMetrics: { prompt_tokens: number; completion_tokens: number } =
+    {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+    };
 
   /** Debug counter */
   private _debugCallCount = 0;
@@ -601,27 +604,23 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
    */
   provideTokenCount(
     _model: LanguageModelChatInformation,
-    text: string | LanguageModelChatMessage,
+    text:
+      | string
+      | {
+          content: readonly unknown[];
+        },
     _token: CancellationToken
   ): Promise<number> {
     if (typeof text === "string") {
-      return Promise.resolve(Math.ceil(text.length / 4));
-    } else {
-      let totalTokens = 0;
-      for (const part of text.content) {
-        const tv = getTextPartValue(part);
-        if (tv !== undefined) {
-          totalTokens += Math.ceil(tv.length / 4);
-          continue;
-        }
-        const img = extractImageData(part);
-        if (img) {
-          // Rough estimate: images typically cost ~1000-2000 tokens
-          totalTokens += 1500;
-        }
-      }
-      return Promise.resolve(totalTokens);
+      return Promise.resolve(estimateTokens(text));
     }
+
+    const totalTokens = estimateMessagesTokens([
+      {
+        content: text.content as (vscode.LanguageModelInputPart | LegacyPart)[],
+      },
+    ]);
+    return Promise.resolve(totalTokens);
   }
 
   /**
@@ -693,7 +692,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
             await this.flushToolCallBuffers(progress, false);
             await this.flushActiveTextToolCall(progress);
             // Report usage metrics
-            this.reportUsageMetrics(progress);
+            this.reportUsageMetrics();
             continue;
           }
 
@@ -705,7 +704,8 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
                 this._usageMetrics.prompt_tokens = parsed.usage.prompt_tokens;
               }
               if (parsed.usage.completion_tokens !== undefined) {
-                this._usageMetrics.completion_tokens = parsed.usage.completion_tokens;
+                this._usageMetrics.completion_tokens =
+                  parsed.usage.completion_tokens;
               }
             }
             await this.processDelta(parsed, progress);
@@ -734,10 +734,11 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   /**
    * Report usage metrics to VS Code Chat UI
    */
-  private reportUsageMetrics(
-    progress: vscode.Progress<vscode.LanguageModelResponsePart>
-  ): void {
-    if (this._usageMetrics.prompt_tokens > 0 || this._usageMetrics.completion_tokens > 0) {
+  private reportUsageMetrics(): void {
+    if (
+      this._usageMetrics.prompt_tokens > 0 ||
+      this._usageMetrics.completion_tokens > 0
+    ) {
       console.log("[Z.ai Model Provider] Token usage metrics", {
         prompt_tokens: this._usageMetrics.prompt_tokens,
         completion_tokens: this._usageMetrics.completion_tokens,

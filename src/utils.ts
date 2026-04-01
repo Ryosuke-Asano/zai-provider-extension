@@ -42,6 +42,62 @@ export function getTextPartValue(
   return undefined;
 }
 
+function toUint8Array(
+  data: Uint8Array | number[] | ArrayBuffer | undefined
+): Uint8Array | undefined {
+  if (data instanceof Uint8Array && data.length > 0) {
+    return data;
+  }
+  if (Array.isArray(data) && data.length > 0) {
+    return new Uint8Array(data);
+  }
+  if (data instanceof ArrayBuffer && data.byteLength > 0) {
+    return new Uint8Array(data);
+  }
+  return undefined;
+}
+
+/**
+ * Helper: extract UTF-8 text from LanguageModelDataPart-like content
+ */
+export function getDataPartTextValue(
+  part: vscode.LanguageModelInputPart | LegacyPart
+): string | undefined {
+  if (typeof part !== "object" || part === null) {
+    return undefined;
+  }
+
+  const p = part as {
+    mimeType?: unknown;
+    data?: Uint8Array | number[];
+    bytes?: Uint8Array | number[];
+    buffer?: ArrayBuffer;
+  };
+  if (typeof p.mimeType !== "string") {
+    return undefined;
+  }
+
+  const isTextMime =
+    p.mimeType.startsWith("text/") ||
+    p.mimeType === "application/json" ||
+    p.mimeType.endsWith("+json");
+  if (!isTextMime) {
+    return undefined;
+  }
+
+  const bytes =
+    toUint8Array(p.data) ?? toUint8Array(p.bytes) ?? toUint8Array(p.buffer);
+  if (!bytes) {
+    return undefined;
+  }
+
+  try {
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Helper: extract image bytes and mime type from a variety of part shapes
  */
@@ -182,6 +238,13 @@ export function getToolResultTexts(
       );
       if (tv !== undefined) {
         results.push(truncateText(tv, maxChars));
+        continue;
+      }
+      const dv = getDataPartTextValue(
+        inner as vscode.LanguageModelInputPart | LegacyPart
+      );
+      if (dv !== undefined) {
+        results.push(truncateText(dv, maxChars));
         continue;
       }
       try {
@@ -499,6 +562,11 @@ export function estimateMessagesTokens(
       const tv = getTextPartValue(part);
       if (tv !== undefined) {
         total += estimateTokens(tv);
+        continue;
+      }
+      const dv = getDataPartTextValue(part);
+      if (dv !== undefined) {
+        total += estimateTokens(dv);
         continue;
       }
       const img = extractImageData(part);

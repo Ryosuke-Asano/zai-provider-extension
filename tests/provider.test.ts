@@ -152,4 +152,31 @@ describe("ZaiChatModelProvider", () => {
 
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it("should count tokens for text data parts in provideTokenCount", async () => {
+    const provider = new ZaiChatModelProvider(
+      secrets as unknown as vscode.SecretStorage,
+      "jest-agent"
+    );
+    const models = await provider.provideLanguageModelChatInformation(
+      { silent: true } as vscode.PrepareLanguageModelChatModelOptions,
+      createToken()
+    );
+    const glm5 = models.find((m) => m.id === "glm-5");
+    if (!glm5) {
+      throw new Error("glm-5 not found");
+    }
+
+    const text = "text from LanguageModelDataPart";
+    const message = vscode.LanguageModelChatMessage.User([
+      vscode.LanguageModelDataPart.text(text),
+    ]);
+
+    const count = await provider.provideTokenCount(
+      glm5,
+      message,
+      createToken()
+    );
+    expect(count).toBe(Math.ceil(text.length / 4));
+  });
 });

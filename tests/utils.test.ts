@@ -233,6 +233,31 @@ describe("estimateMessagesTokens", () => {
     expect(tokens).toBeGreaterThanOrEqual(1500);
   });
 
+  it("should estimate tokens for text data parts", () => {
+    const text = "Token count from data part";
+    const dataPart = vscode.LanguageModelDataPart.text(text);
+    const message = new vscode.LanguageModelChatMessage(
+      vscode.LanguageModelChatMessageRole.User,
+      [dataPart]
+    );
+
+    const tokens = estimateMessagesTokens(toEstimatableMessages([message]));
+    expect(tokens).toBe(Math.ceil(text.length / 4));
+  });
+
+  it("should estimate tokens for json data parts", () => {
+    const payload = { action: "analyze", target: "file.ts" };
+    const jsonText = JSON.stringify(payload);
+    const dataPart = vscode.LanguageModelDataPart.json(payload);
+    const message = new vscode.LanguageModelChatMessage(
+      vscode.LanguageModelChatMessageRole.User,
+      [dataPart]
+    );
+
+    const tokens = estimateMessagesTokens(toEstimatableMessages([message]));
+    expect(tokens).toBe(Math.ceil(jsonText.length / 4));
+  });
+
   it("should estimate tokens for message with only text", () => {
     const message = new vscode.LanguageModelChatMessage(
       vscode.LanguageModelChatMessageRole.User,
