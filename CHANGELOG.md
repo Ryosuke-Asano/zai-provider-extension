@@ -7,9 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-04-02
+
+### Changed
+
+- Replaced internal GLM-4.6V vision fallback with GLM-5V-Turbo multimodal coding model
+  - GLM-5V-Turbo: 200K context window, 128K max output, vision + tool support
+  - Updated vision fallback in `mcp.ts` and `provider.ts`
+
+## [0.7.3] - 2026-03-28
+
 ### Added
 
-- GLM-5 model support (200K context window, 128K max output tokens, tool calling, and thinking mode)
+- GLM-5.1 model support
+
+## [0.6.4] - 2026-03-XX
+
+### Added
+
 - CI/CD pipeline with GitHub Actions
   - Automated linting, testing, and compilation checks
   - Automated release workflow for tag pushes
