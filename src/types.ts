@@ -118,7 +118,7 @@ export interface ZaiModelInfo {
   supportsVision: boolean;
   /**
    * When true, the model is internal-only and should not be exposed to users.
-   * For example, `glm-4.6v` may be kept for internal vision fallback.
+   * For example, `glm-5v-turbo` may be kept for internal vision fallback.
    */
   internal?: boolean;
 }
@@ -199,13 +199,22 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     supportsVision: false, // Text-only model
   },
   {
-    id: "glm-5-turbo",
-    name: "glm-5-turbo",
-    displayName: "GLM-5-Turbo",
+    id: "glm-5.1",
+    name: "GLM-5.1",
+    displayName: "GLM-5.1",
     contextWindow: 200000,
     maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // Text-only model
+  },
+  {
+    id: "glm-5v-turbo",
+    name: "GLM-5V-Turbo",
+    displayName: "GLM-5V-Turbo",
+    contextWindow: 200000,
+    maxOutput: 131072,
+    supportsTools: true,
+    supportsVision: true, // Multimodal coding model
   },
   {
     id: "glm-5-code",

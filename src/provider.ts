@@ -231,7 +231,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
    */
   private getVisionFallbackModelId(): string | undefined {
     const preferred = ZAI_MODELS.find(
-      (m) => m.id === "glm-4.6v" && m.supportsVision
+      (m) => m.id === "glm-5v-turbo" && m.supportsVision
     );
     if (preferred) {
       return preferred.id;
