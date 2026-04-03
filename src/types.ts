@@ -135,6 +135,7 @@ export interface ZaiRequestBody {
   model: string;
   messages: ZaiChatMessage[];
   stream?: boolean;
+  stream_options?: { include_usage?: boolean };
   max_tokens?: number;
   temperature?: number;
   thinking?: { type: string };
@@ -171,8 +172,8 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-4.6",
     name: "GLM-4.6",
     displayName: "GLM-4.6",
-    contextWindow: 200000,
-    maxOutput: 131072,
+    contextWindow: 204800,
+    maxOutput: 204800,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
@@ -180,8 +181,8 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-4.7",
     name: "GLM-4.7",
     displayName: "GLM-4.7",
-    contextWindow: 200000,
-    maxOutput: 131072,
+    contextWindow: 202752,
+    maxOutput: 65535,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },
@@ -189,8 +190,8 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-4.7-flash",
     name: "GLM-4.7 Flash",
     displayName: "GLM-4.7 Flash",
-    contextWindow: 200000,
-    maxOutput: 131072,
+    contextWindow: 202752,
+    maxOutput: 65535,
     supportsTools: true,
     supportsVision: false, // No vision support
   },
@@ -198,7 +199,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-5",
     name: "GLM-5",
     displayName: "GLM-5",
-    contextWindow: 200000,
+    contextWindow: 202752,
     maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // Text-only model
@@ -207,7 +208,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-5.1",
     name: "GLM-5.1",
     displayName: "GLM-5.1",
-    contextWindow: 200000,
+    contextWindow: 202752,
     maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // Text-only model
@@ -216,7 +217,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-5-turbo",
     name: "GLM-5-Turbo",
     displayName: "GLM-5-Turbo",
-    contextWindow: 200000,
+    contextWindow: 202752,
     maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // Text-only model
@@ -225,7 +226,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-5v-turbo",
     name: "GLM-5V-Turbo",
     displayName: "GLM-5V-Turbo",
-    contextWindow: 200000,
+    contextWindow: 202752,
     maxOutput: 131072,
     supportsTools: true,
     supportsVision: true, // Multimodal coding model
@@ -234,8 +235,8 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     id: "glm-5-code",
     name: "GLM-5-Code",
     displayName: "GLM-5-Code",
-    contextWindow: 200000,
-    maxOutput: 131000,
+    contextWindow: 202752,
+    maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // Text-only model
   },

@@ -13,6 +13,7 @@ import {
   ZaiChatResponse,
   ZaiStreamChoice,
   ZaiStreamResponse,
+  ZaiRequestBody,
   ZAI_MODELS,
 } from "../src/types";
 
@@ -365,18 +366,18 @@ describe("ZAI_MODELS", () => {
     expect(model?.name).toBe("GLM-4.7");
     expect(model?.supportsTools).toBe(true);
     expect(model?.supportsVision).toBe(false);
-    // Official values: 200K context, 128K max output
-    expect(model?.contextWindow).toBe(200000);
-    expect(model?.maxOutput).toBe(131072);
+    // OpenRouter values: 202,752 context, 65,535 max output
+    expect(model?.contextWindow).toBe(202752);
+    expect(model?.maxOutput).toBe(65535);
   });
 
   it("should have GLM-4.7 Flash model", () => {
     const model = ZAI_MODELS.find((m) => m.id === "glm-4.7-flash");
     expect(model).toBeDefined();
     expect(model?.name).toBe("GLM-4.7 Flash");
-    // Flash defaults show 200K context and 128K max output
-    expect(model?.contextWindow).toBe(200000);
-    expect(model?.maxOutput).toBe(131072);
+    // OpenRouter values: 202,752 context, 65,535 max output
+    expect(model?.contextWindow).toBe(202752);
+    expect(model?.maxOutput).toBe(65535);
   });
 
   it("should have GLM-5 model", () => {
@@ -386,7 +387,7 @@ describe("ZAI_MODELS", () => {
     expect(model?.displayName).toBe("GLM-5");
     expect(model?.supportsTools).toBe(true);
     expect(model?.supportsVision).toBe(false);
-    expect(model?.contextWindow).toBe(200000);
+    expect(model?.contextWindow).toBe(202752);
     expect(model?.maxOutput).toBe(131072);
   });
 
@@ -405,5 +406,65 @@ describe("ZAI_MODELS", () => {
     const ids = ZAI_MODELS.map((m) => m.id);
     const uniqueIds = new Set(ids);
     expect(uniqueIds.size).toBe(ids.length);
+  });
+});
+
+describe("ZaiRequestBody", () => {
+  it("should support stream_options with include_usage", () => {
+    const body: ZaiRequestBody = {
+      model: "glm-4.7",
+      messages: [],
+      stream: true,
+      stream_options: { include_usage: true },
+      max_tokens: 4096,
+    };
+    expect(body.stream_options).toEqual({ include_usage: true });
+  });
+
+  it("should allow stream_options to be omitted", () => {
+    const body: ZaiRequestBody = {
+      model: "glm-4.7",
+      messages: [],
+      stream: true,
+    };
+    expect(body.stream_options).toBeUndefined();
+  });
+});
+
+describe("ZaiStreamResponse with usage", () => {
+  it("should parse usage from final streaming chunk", () => {
+    const response: ZaiStreamResponse = {
+      id: "chatcmpl-123",
+      object: "chat.completion.chunk",
+      created: 1234567890,
+      model: "glm-4.7",
+      choices: [],
+      usage: {
+        prompt_tokens: 100,
+        completion_tokens: 50,
+        total_tokens: 150,
+      },
+    };
+    expect(response.usage).toBeDefined();
+    expect(response.usage!.prompt_tokens).toBe(100);
+    expect(response.usage!.completion_tokens).toBe(50);
+    expect(response.choices).toHaveLength(0);
+  });
+
+  it("should handle chunk without usage", () => {
+    const response: ZaiStreamResponse = {
+      id: "chatcmpl-123",
+      object: "chat.completion.chunk",
+      created: 1234567890,
+      model: "glm-4.7",
+      choices: [
+        {
+          index: 0,
+          delta: { content: "Hello" },
+          finish_reason: null,
+        },
+      ],
+    };
+    expect(response.usage).toBeUndefined();
   });
 });

@@ -47,8 +47,8 @@ describe("ZaiChatModelProvider", () => {
 
     const glm47 = models.find((m) => m.id === "glm-4.7");
     expect(glm47).toBeDefined();
-    expect(glm47?.maxInputTokens).toBe(200000);
-    expect(glm47?.maxOutputTokens).toBe(131072);
+    expect(glm47?.maxInputTokens).toBe(Math.floor(202752 * 0.75));
+    expect(glm47?.maxOutputTokens).toBe(65535);
   });
 
   it("should allow prompts larger than the old reserved-output cap", async () => {
@@ -117,7 +117,7 @@ describe("ZaiChatModelProvider", () => {
     };
     expect(requestInit.body).toBeDefined();
     const requestBody = JSON.parse(requestInit.body ?? "{}");
-    expect(requestBody.max_tokens).toBe(65536);
+    expect(requestBody.max_tokens).toBe(65535);
   });
 
   it("should reject prompts that exceed the documented context window", async () => {
@@ -134,7 +134,7 @@ describe("ZaiChatModelProvider", () => {
       throw new Error("glm-5 not found");
     }
 
-    const tooLargePrompt = "a".repeat(200001 * 4);
+    const tooLargePrompt = "a".repeat(202753 * 4);
     const messages = [vscode.LanguageModelChatMessage.User(tooLargePrompt)];
     const progress = {
       report: jest.fn(),

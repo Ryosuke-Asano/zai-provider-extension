@@ -86,6 +86,9 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       completion_tokens: 0,
     };
 
+  /** Track whether usage metrics have been reported for the current request */
+  private _usageReported = false;
+
   /** Debug counter */
   private _debugCallCount = 0;
 
@@ -213,7 +216,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           tooltip: `Z.ai ${model.name}`,
           family: "zai",
           version: "1.0.0",
-          maxInputTokens: Math.max(1, model.contextWindow),
+          maxInputTokens: Math.max(1, Math.floor(model.contextWindow * 0.75)),
           maxOutputTokens: model.maxOutput,
           capabilities: {
             toolCalling: model.supportsTools ? MAX_TOOLS_PER_REQUEST : false,
@@ -391,6 +394,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     this._emittedTextToolCallKeys.clear();
     this._emittedTextToolCallIds.clear();
     this._usageMetrics = { prompt_tokens: 0, completion_tokens: 0 };
+    this._usageReported = false;
     const abortController = new AbortController();
     const cancellationSubscription = token.onCancellationRequested(() => {
       abortController.abort();
@@ -498,6 +502,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         model: effectiveModelId,
         messages: zaiMessages,
         stream: true,
+        stream_options: { include_usage: true },
         max_tokens: requestedMaxTokens,
         temperature: temperatureVal,
       };
@@ -538,6 +543,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         model: effectiveModelId,
         messageCount: messages.length,
         thinkingEnabled: this.isThinkingEnabled(),
+        includeUsage: true,
         timestamp: new Date().toISOString(),
       });
 
@@ -615,11 +621,16 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       return Promise.resolve(estimateTokens(text));
     }
 
+    const partCount = text.content.length;
     const totalTokens = estimateMessagesTokens([
       {
         content: text.content as (vscode.LanguageModelInputPart | LegacyPart)[],
       },
     ]);
+    console.log("[Z.ai Model Provider] provideTokenCount (message):", {
+      partCount,
+      result: totalTokens,
+    });
     return Promise.resolve(totalTokens);
   }
 
@@ -692,7 +703,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
             await this.flushToolCallBuffers(progress, false);
             await this.flushActiveTextToolCall(progress);
             // Report usage metrics
-            this.reportUsageMetrics();
+            console.log("[Z.ai Model Provider] Stream [DONE], final usage metrics:", {
+              prompt_tokens: this._usageMetrics.prompt_tokens,
+              completion_tokens: this._usageMetrics.completion_tokens,
+              alreadyReported: this._usageReported,
+            });
+            this.reportUsageMetrics(progress);
             continue;
           }
 
@@ -700,6 +716,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
             const parsed = JSON.parse(data) as ZaiStreamResponse;
             // Track usage metrics from the response
             if (parsed.usage) {
+              console.log("[Z.ai Model Provider] Received usage in chunk:", parsed.usage);
               if (parsed.usage.prompt_tokens !== undefined) {
                 this._usageMetrics.prompt_tokens = parsed.usage.prompt_tokens;
               }
@@ -708,13 +725,26 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
                   parsed.usage.completion_tokens;
               }
             }
-            await this.processDelta(parsed, progress);
+            // Skip processDelta for usage-only final chunk (empty choices)
+            if (parsed.choices && parsed.choices.length > 0) {
+              await this.processDelta(parsed, progress);
+            } else if (parsed.usage) {
+              console.log("[Z.ai Model Provider] Received usage-only final chunk:", parsed.usage);
+            }
           } catch {
             // Silently ignore malformed SSE lines temporarily
           }
         }
       }
     } finally {
+      // Report any unreported usage metrics before cleanup
+      if (!this._usageReported) {
+        try {
+          this.reportUsageMetrics(progress);
+        } catch {
+          // Best effort — progress may already be closed
+        }
+      }
       reader.releaseLock();
       // Clean up any leftover tool call state
       this._toolCallBuffers.clear();
@@ -728,24 +758,50 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       this._hasEmittedThinkingContent = false;
       this._reasoningContentBuffer = "";
       this._usageMetrics = { prompt_tokens: 0, completion_tokens: 0 };
+      this._usageReported = false;
     }
   }
 
   /**
-   * Report usage metrics to VS Code Chat UI
+   * Report usage metrics to VS Code Chat UI via LanguageModelDataPart
    */
-  private reportUsageMetrics(): void {
+  private reportUsageMetrics(
+    progress: vscode.Progress<vscode.LanguageModelResponsePart>
+  ): void {
+    if (this._usageReported) {
+      return;
+    }
     if (
       this._usageMetrics.prompt_tokens > 0 ||
       this._usageMetrics.completion_tokens > 0
     ) {
+      const totalTokens =
+        this._usageMetrics.prompt_tokens +
+        this._usageMetrics.completion_tokens;
       console.log("[Z.ai Model Provider] Token usage metrics", {
         prompt_tokens: this._usageMetrics.prompt_tokens,
         completion_tokens: this._usageMetrics.completion_tokens,
-        total_tokens:
-          this._usageMetrics.prompt_tokens +
-          this._usageMetrics.completion_tokens,
+        total_tokens: totalTokens,
       });
+      try {
+        progress.report(
+          vscode.LanguageModelDataPart.json(
+            {
+              type: "usage",
+              prompt_tokens: this._usageMetrics.prompt_tokens,
+              completion_tokens: this._usageMetrics.completion_tokens,
+              total_tokens: totalTokens,
+            },
+            "application/vnd.zai.usage+json"
+          )
+        );
+      } catch (e) {
+        console.warn(
+          "[Z.ai Model Provider] Failed to report usage via progress",
+          e
+        );
+      }
+      this._usageReported = true;
     }
   }
 
