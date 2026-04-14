@@ -53,6 +53,9 @@ const BASE_URL = "https://api.z.ai/api/coding/paas/v4";
 const MAX_TOOL_RESULT_CHARS = 20000;
 const MAX_TOOLS_PER_REQUEST = 128;
 const DEFAULT_MAX_TOKENS = 65536;
+const MAX_RETRIES = 10;
+const BASE_RETRY_DELAY_MS = 2000;
+const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 504];
 
 /**
  * VS Code Chat provider backed by Z.ai API.
@@ -233,7 +236,10 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           tooltip: `Z.ai ${model.name}`,
           family: "zai",
           version: "1.0.0",
-          maxInputTokens: Math.max(1, model.contextWindow - Math.min(model.maxOutput, DEFAULT_MAX_TOKENS)),
+          maxInputTokens: Math.max(
+            1,
+            model.contextWindow - Math.min(model.maxOutput, DEFAULT_MAX_TOKENS)
+          ),
           maxOutputTokens: model.maxOutput,
           capabilities: {
             toolCalling: model.supportsTools ? MAX_TOOLS_PER_REQUEST : false,
@@ -582,69 +588,209 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       if (token.isCancellationRequested) {
         throw new vscode.CancellationError();
       }
-      const response = await fetch(`${BASE_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "User-Agent": this.userAgent,
-        },
-        signal: abortController.signal,
-        body: JSON.stringify(requestBody),
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[Z.ai Model Provider] API error response", errorText);
+      // Retry loop for handling retryable errors (429, 500, 502, 503, 504)
+      let response: Response | undefined;
+      let lastError: Error | undefined;
+      let lastStatusCode = 0;
 
-        // If vision fallback failed due to subscription limits (429 + code 1311),
-        // fall back to OCR processing on the original model instead.
-        if (
-          usedVisionFallback &&
-          response.status === 429 &&
-          errorText.includes("1311")
-        ) {
-          console.warn(
-            "[Z.ai Model Provider] Vision model unavailable on subscription, falling back to OCR",
-            { originalModel: model.id, failedVisionModel: effectiveModelId }
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        if (token.isCancellationRequested) {
+          throw new vscode.CancellationError();
+        }
+
+        if (attempt > 0) {
+          const delay = BASE_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+          console.log(
+            `[Z.ai Model Provider] ⏳ Retry attempt ${attempt}/${MAX_RETRIES} after ${delay}ms delay`
           );
+          progress.report({
+            value: `⏳ Request failed (${lastStatusCode}). Retry attempt ${attempt}/${MAX_RETRIES} (waiting ${delay / 1000}s)...`,
+          } as unknown as LanguageModelResponsePart);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
 
-          // Reset to original model and process images via OCR
-          effectiveModelId = model.id;
-          const ocrResult = await this.processImagesForNonVisionModel(
-            messages,
-            model.id,
+        response = await fetch(`${BASE_URL}/chat/completions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "User-Agent": this.userAgent,
+          },
+          signal: abortController.signal,
+          body: JSON.stringify(requestBody),
+        });
+
+        if (response.ok) {
+          lastError = undefined;
+          break;
+        }
+
+        const errorText = await response.text();
+        lastStatusCode = response.status;
+        console.error("[Z.ai Model Provider] API error response", {
+          status: response.status,
+          attempt,
+          error: errorText,
+        });
+
+        // Check if this is a retryable error (429, 500, 502, 503, 504)
+        if (
+          RETRYABLE_STATUS_CODES.includes(response.status) &&
+          attempt < MAX_RETRIES
+        ) {
+          // If vision fallback failed due to subscription limits (429 + code 1311),
+          // fall back to OCR processing on the original model instead.
+          if (usedVisionFallback && errorText.includes("1311")) {
+            console.warn(
+              "[Z.ai Model Provider] Vision model unavailable on subscription, falling back to OCR",
+              { originalModel: model.id, failedVisionModel: effectiveModelId }
+            );
+
+            // Reset to original model and process images via OCR
+            effectiveModelId = model.id;
+            const ocrResult = await this.processImagesForNonVisionModel(
+              messages,
+              model.id,
+              token
+            );
+            processedMessages = ocrResult.processedMessages;
+
+            // Rebuild request with original model + OCR'd messages
+            const ocrZaiMessages = convertMessages(processedMessages, {
+              maxToolResultChars: MAX_TOOL_RESULT_CHARS,
+            });
+            const ocrRequestBody: ZaiRequestBody = {
+              model: effectiveModelId,
+              messages: ocrZaiMessages,
+              stream: true,
+              stream_options: { include_usage: true },
+              max_tokens: requestedMaxTokens,
+              temperature: temperatureVal,
+            };
+            if (this.isThinkingEnabled()) {
+              ocrRequestBody.thinking = { type: "enabled" };
+            }
+            if (toolConfig.tools) {
+              ocrRequestBody.tools = toolConfig.tools;
+            }
+            if (toolConfig.tool_choice) {
+              ocrRequestBody.tool_choice = toolConfig.tool_choice;
+            }
+
+            console.log("[Z.ai Model Provider] 🔄 Retrying with OCR fallback", {
+              model: effectiveModelId,
+            });
+
+            const retryResponse = await fetch(`${BASE_URL}/chat/completions`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "User-Agent": this.userAgent,
+              },
+              signal: abortController.signal,
+              body: JSON.stringify(ocrRequestBody),
+            });
+
+            if (!retryResponse.ok) {
+              const retryErrorText = await retryResponse.text();
+              console.error(
+                "[Z.ai Model Provider] OCR fallback also failed",
+                retryErrorText
+              );
+              throw this.toLanguageModelError(
+                retryResponse.status,
+                retryResponse.statusText,
+                retryErrorText
+              );
+            }
+
+            if (!retryResponse.body) {
+              throw new Error("No response body from Z.ai API");
+            }
+
+            await this.processStreamingResponse(
+              retryResponse.body,
+              trackingProgress,
+              token
+            );
+            return;
+          }
+
+          lastError = this.toLanguageModelError(
+            response.status,
+            response.statusText,
+            errorText
+          );
+          console.log(
+            `[Z.ai Model Provider] 🔄 Received ${response.status} error, will retry (attempt ${attempt + 1}/${MAX_RETRIES})`
+          );
+          continue;
+        }
+
+        // Non-retryable error or max retries exceeded
+        throw this.toLanguageModelError(
+          response.status,
+          response.statusText,
+          errorText
+        );
+      }
+
+      if (!response || !response.ok) {
+        throw lastError || new Error("Request failed after max retries");
+      }
+
+      if (!response.body) {
+        throw new Error("No response body from Z.ai API");
+      }
+
+      // Process streaming response with retry on failure
+      let streamRetryCount = 0;
+      while (true) {
+        try {
+          await this.processStreamingResponse(
+            response.body,
+            trackingProgress,
             token
           );
-          processedMessages = ocrResult.processedMessages;
-
-          // Rebuild request with original model + OCR'd messages
-          const ocrZaiMessages = convertMessages(processedMessages, {
-            maxToolResultChars: MAX_TOOL_RESULT_CHARS,
-          });
-          const ocrRequestBody: ZaiRequestBody = {
-            model: effectiveModelId,
-            messages: ocrZaiMessages,
-            stream: true,
-            stream_options: { include_usage: true },
-            max_tokens: requestedMaxTokens,
-            temperature: temperatureVal,
-          };
-          if (this.isThinkingEnabled()) {
-            ocrRequestBody.thinking = { type: "enabled" };
-          }
-          if (toolConfig.tools) {
-            ocrRequestBody.tools = toolConfig.tools;
-          }
-          if (toolConfig.tool_choice) {
-            ocrRequestBody.tool_choice = toolConfig.tool_choice;
+          // Success - reset retry count for potential future requests
+          streamRetryCount = 0;
+          break;
+        } catch (streamErr) {
+          // Don't retry on cancellation
+          if (
+            token.isCancellationRequested ||
+            (streamErr instanceof Error && streamErr.name === "AbortError") ||
+            streamErr instanceof vscode.CancellationError
+          ) {
+            throw new vscode.CancellationError();
           }
 
-          console.log("[Z.ai Model Provider] 🔄 Retrying with OCR fallback", {
-            model: effectiveModelId,
-          });
+          streamRetryCount++;
+          if (streamRetryCount > MAX_RETRIES) {
+            console.error(
+              `[Z.ai Model Provider] Streaming failed after ${MAX_RETRIES} retries`,
+              streamErr
+            );
+            throw streamErr;
+          }
 
-          const retryResponse = await fetch(`${BASE_URL}/chat/completions`, {
+          const delay = BASE_RETRY_DELAY_MS * Math.pow(2, streamRetryCount - 1);
+          console.warn(
+            `[Z.ai Model Provider] ⏳ Streaming error, retry ${streamRetryCount}/${MAX_RETRIES} after ${delay}ms`,
+            streamErr
+          );
+          progress.report({
+            value: `⏳ Streaming error. Retry ${streamRetryCount}/${MAX_RETRIES} (waiting ${delay / 1000}s)...`,
+          } as unknown as LanguageModelResponsePart);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+
+          // Re-fetch the request for retry
+          if (token.isCancellationRequested) {
+            throw new vscode.CancellationError();
+          }
+          response = await fetch(`${BASE_URL}/chat/completions`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${apiKey}`,
@@ -652,48 +798,26 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
               "User-Agent": this.userAgent,
             },
             signal: abortController.signal,
-            body: JSON.stringify(ocrRequestBody),
+            body: JSON.stringify(requestBody),
           });
 
-          if (!retryResponse.ok) {
-            const retryErrorText = await retryResponse.text();
+          if (!response.ok) {
+            const retryErrorText = await response.text();
             console.error(
-              "[Z.ai Model Provider] OCR fallback also failed",
+              "[Z.ai Model Provider] Retry request failed",
               retryErrorText
             );
             throw this.toLanguageModelError(
-              retryResponse.status,
-              retryResponse.statusText,
+              response.status,
+              response.statusText,
               retryErrorText
             );
           }
 
-          if (!retryResponse.body) {
+          if (!response.body) {
             throw new Error("No response body from Z.ai API");
           }
-
-          await this.processStreamingResponse(
-            retryResponse.body,
-            trackingProgress,
-            token
-          );
-        } else {
-          throw this.toLanguageModelError(
-            response.status,
-            response.statusText,
-            errorText
-          );
         }
-      } else {
-        if (!response.body) {
-          throw new Error("No response body from Z.ai API");
-        }
-
-        await this.processStreamingResponse(
-          response.body,
-          trackingProgress,
-          token
-        );
       }
     } catch (err) {
       if (
