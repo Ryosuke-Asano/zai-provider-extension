@@ -87,7 +87,9 @@ Get your API key from [Z.ai Platform](https://open.bigmodel.cn/).
 Once configured, select Z.ai as your chat provider in VS Code Copilot Chat:
 
 - Open the Chat view (`Cmd/Ctrl + Alt + I`)
-- Click the provider selector
+- Click the Pick Model button (`Cmd/Ctrl + Alt + .`)
+- Open Manage Language Models menu (⚙️)
+- Click Z.ai models under `Z.ai` category to "Show in the chat model picker"
 - Choose a Z.ai model (GLM-4.5, GLM-4.6, GLM-4.7, GLM-4.7 Flash, GLM-5, GLM-5-Turbo, GLM-5.1, GLM-5V-Turbo, or GLM-5-Code)
   - Note: GLM-4.6V is used internally for image processing and is not selectable
 
