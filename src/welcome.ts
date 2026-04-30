@@ -19,7 +19,7 @@ export function showWelcomePanel(
 
   // Handle the "Set API Key" button click
   panel.webview.onDidReceiveMessage(
-    async (message) => {
+    async (message: { command: string }) => {
       if (message.command === "setApiKey") {
         await vscode.commands.executeCommand("zai.manage");
         // Close the welcome panel after opening the key prompt

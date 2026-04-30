@@ -74,7 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
   console.log("[Z.ai Provider] Extension activated");
 
   // Show welcome page on first install (when no API key is stored)
-  shouldShowWelcome(context).then((show) => {
+  void shouldShowWelcome(context).then((show) => {
     if (show) {
       showWelcomePanel(context, extVersion);
     }
