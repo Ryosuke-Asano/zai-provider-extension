@@ -2,7 +2,7 @@
   "name": "zai-vscode-chat",
   "displayName": "Z.ai Chat Provider for VS Code",
   "description": "Integrates Z.ai models (GLM-4.5, GLM-4.6, GLM-4.7, GLM-5, GLM-5-Turbo, GLM-5.1, GLM-5V-Turbo, GLM-5-Code) into VS Code Copilot Chat with vision support and thinking process display",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "publisher": "Ryosuke-Asano",
   "license": "MIT",
   "repository": {
@@ -48,6 +48,11 @@
       {
         "command": "zai.manage",
         "title": "Manage Z.ai Provider",
+        "category": "Z.ai"
+      },
+      {
+        "command": "zai.welcome",
+        "title": "Welcome (Getting Started)",
         "category": "Z.ai"
       }
     ],

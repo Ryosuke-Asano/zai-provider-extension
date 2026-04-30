@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import packageJson from "../package.json";
 import { ZaiChatModelProvider } from "./provider";
 import { registerZaiTools } from "./tools";
+import { shouldShowWelcome, showWelcomePanel } from "./welcome";
 
 // Global provider reference for API key management
 let _provider: ZaiChatModelProvider | null = null;
@@ -71,6 +72,20 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   console.log("[Z.ai Provider] Extension activated");
+
+  // Show welcome page on first install (when no API key is stored)
+  shouldShowWelcome(context).then((show) => {
+    if (show) {
+      showWelcomePanel(context, extVersion);
+    }
+  });
+
+  // Command to manually reopen the welcome page
+  context.subscriptions.push(
+    vscode.commands.registerCommand("zai.welcome", () => {
+      showWelcomePanel(context, extVersion);
+    })
+  );
 }
 
 export function deactivate() {
