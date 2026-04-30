@@ -173,6 +173,10 @@ src/
 
 ## Troubleshooting
 
+### Can't Access "Manage Language Models" Menu
+
+If you don't see the ⚙️ **Manage Language Models** option in Copilot Chat, make sure you have Copilot set up and enabled in VS Code. See [Set up Copilot](https://code.visualstudio.com/docs/copilot/setup) for instructions.
+
 ### API Key Issues
 
 If you see authentication errors:
