@@ -176,10 +176,6 @@ export interface LanguageModelTool {
 
 export type LanguageModelChatTool = LanguageModelTool;
 
-export interface Disposable {
-  dispose(): void;
-}
-
 export type Event<T> = (listener: (e: T) => void) => Disposable;
 
 export class EventEmitter<T> {
@@ -219,6 +215,45 @@ export type LanguageModelResponsePart =
   | LanguageModelToolCallPart
   | LanguageModelToolResultPart
   | LanguageModelDataPart;
+
+export interface Uri {
+  toString(): string;
+}
+
+export interface Disposable {
+  dispose(): void;
+}
+
+export enum ExtensionMode {
+  Production = 1,
+  Development = 2,
+  Test = 3,
+}
+
+export interface ExtensionContext {
+  globalState: {
+    get: <T = unknown>(key: string, defaultValue?: T) => T;
+    update: (key: string, value: unknown) => Promise<void>;
+    keys: () => string[];
+    setKeysForSync: (keys: string[]) => void;
+  };
+  secrets: SecretStorage;
+  subscriptions: Disposable[];
+  extensionUri: Uri;
+  extensionPath: string;
+  storageUri: Uri | undefined;
+  globalStorageUri: Uri;
+  logUri: Uri;
+  extensionMode: ExtensionMode;
+  environmentVariableCollection: any;
+  asAbsolutePath: (relativePath: string) => string;
+}
+
+export enum ViewColumn {
+  One = 1,
+  Two = 2,
+  Three = 3,
+}
 
 export class CancellationError extends Error {
   constructor() {
@@ -271,12 +306,14 @@ export const lm = {
 
 export const commands = {
   registerCommand: jest.fn(),
+  executeCommand: jest.fn(),
 };
 
 export const window = {
   showInputBox: jest.fn(),
   showInformationMessage: jest.fn(),
   showErrorMessage: jest.fn(),
+  createWebviewPanel: jest.fn(),
 };
 
 export const workspace = {
