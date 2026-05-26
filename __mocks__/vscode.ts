@@ -13,6 +13,18 @@ export class LanguageModelTextPart {
   constructor(public readonly value: string) {}
 }
 
+export class LanguageModelThinkingPart {
+  public readonly value: string | string[];
+  public readonly id?: string;
+  public readonly metadata?: { readonly [key: string]: any };
+
+  constructor(value: string | string[], id?: string, metadata?: { readonly [key: string]: any }) {
+    this.value = value;
+    this.id = id;
+    this.metadata = metadata;
+  }
+}
+
 import type { Json } from "../src/types";
 
 export class LanguageModelDataPart {

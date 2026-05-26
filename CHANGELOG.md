@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-26
+
+### Changed
+
+- **Native thinking display**: Reasoning content now uses VS Code's proposed `LanguageModelThinkingPart` API for native thinking block display in Copilot Chat, instead of Markdown-formatted text blocks
+- Thinking process is now streamed in real-time instead of being buffered
+- Added fallback to text display when `LanguageModelThinkingPart` is not available
+
+### Added
+
+- `vscode.proposed.languageModelThinkingPart.d.ts` type definition for the proposed API
+- `LanguageModelThinkingPart` mock for testing
+
 ## [0.8.5] - 2026-04-21
 
 ### Changed
