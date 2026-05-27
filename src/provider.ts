@@ -96,6 +96,12 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   /** Track if we emitted any thinking/reasoning content */
   private _hasEmittedThinkingContent = false;
 
+  /** Buffer for reasoning content (used for markdown fallback on older VS Code) */
+  private _reasoningContentBuffer = "";
+
+  /** Whether the runtime supports LanguageModelThinkingPart (cached per session) */
+  private _supportsThinkingPart: boolean | undefined = undefined;
+
   /** Track token usage from API responses */
   private _usageMetrics: { prompt_tokens: number; completion_tokens: number } =
     {
@@ -188,6 +194,18 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   private isThinkingEnabled(): boolean {
     const config = vscode.workspace.getConfiguration("zai");
     return config.get<boolean>("enableThinking", true);
+  }
+
+  /**
+   * Check if LanguageModelThinkingPart is available at runtime.
+   * Returns true on VS Code 1.116+ where the class exists.
+   */
+  private hasThinkingPartSupport(): boolean {
+    if (this._supportsThinkingPart === undefined) {
+      this._supportsThinkingPart =
+        typeof vscode.LanguageModelThinkingPart === "function";
+    }
+    return this._supportsThinkingPart;
   }
 
   /**
@@ -962,6 +980,21 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           }
           const data = line.slice(6);
           if (data === "[DONE]") {
+            // Older VS Code: flush any remaining buffered reasoning content
+            if (
+              this.isThinkingEnabled() &&
+              !this.hasThinkingPartSupport() &&
+              this._reasoningContentBuffer
+            ) {
+              const formattedReasoning = this.formatReasoningContent(
+                this._reasoningContentBuffer,
+                true
+              );
+              progress.report(
+                new vscode.LanguageModelTextPart(formattedReasoning)
+              );
+              this._reasoningContentBuffer = "";
+            }
             // Do not throw on DONE for incomplete tool call JSON.
             await this.flushToolCallBuffers(progress, false);
             await this.flushActiveTextToolCall(progress);
@@ -1032,6 +1065,7 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       this._emittedTextToolCallKeys.clear();
       this._emittedTextToolCallIds.clear();
       this._hasEmittedThinkingContent = false;
+      this._reasoningContentBuffer = "";
       this._usageMetrics = { prompt_tokens: 0, completion_tokens: 0 };
       this._usageReported = false;
     }
@@ -1104,22 +1138,21 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
           "[Z.ai Model Provider] 🧠 Starting reasoning/thinking process...",
           {
             timestamp: new Date().toISOString(),
+            hasThinkingPartSupport: this.hasThinkingPartSupport(),
           }
         );
       }
       this._hasEmittedThinkingContent = true;
-      
-      // Use LanguageModelThinkingPart for native thinking display in Copilot Chat
-      try {
+
+      if (this.hasThinkingPartSupport()) {
+        // VS Code 1.116+: native ThinkingPart for collapsible thinking display
         const thinkingPart = new vscode.LanguageModelThinkingPart(
           reasoning
         ) as unknown as vscode.LanguageModelResponsePart;
         progress.report(thinkingPart);
-      } catch (e) {
-        // Fallback to text part if LanguageModelThinkingPart is not available
-        console.warn("[Z.ai Model Provider] LanguageModelThinkingPart not available, using text fallback", e);
-        const textPart = new vscode.LanguageModelTextPart(reasoning);
-        progress.report(textPart);
+      } else {
+        // Older VS Code: buffer reasoning and emit as formatted markdown later
+        this._reasoningContentBuffer += reasoning;
       }
       emitted = true;
     }
@@ -1127,6 +1160,20 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
     // Handle text content
     if (deltaObj?.content) {
       const content = String(deltaObj.content);
+
+      // Older VS Code: flush buffered reasoning as formatted markdown before text
+      if (
+        this.isThinkingEnabled() &&
+        !this.hasThinkingPartSupport() &&
+        this._reasoningContentBuffer
+      ) {
+        const formattedReasoning = this.formatReasoningContent(
+          this._reasoningContentBuffer,
+          true
+        );
+        progress.report(new vscode.LanguageModelTextPart(formattedReasoning));
+        this._reasoningContentBuffer = "";
+      }
 
       const textResult = this.processTextContent(content, progress);
       if (textResult.emittedText) {

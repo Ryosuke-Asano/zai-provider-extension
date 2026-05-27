@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-05-27
+
+### Fixed
+
+- **Thinking display not working**: Fixed `LanguageModelThinkingPart` not being detected at runtime by adding explicit `typeof` check instead of relying on try-catch
+- Restored markdown-formatted thinking display (`> 🧠 Thinking Process` quote blocks) as fallback for VS Code versions that don't support `LanguageModelThinkingPart`
+- Added runtime detection (`hasThinkingPartSupport()`) to choose between native thinking part and markdown fallback
+- Added proper buffer management for reasoning content in markdown fallback path
+
 ## [0.9.0] - 2026-05-26
 
 ### Changed
