@@ -20614,6 +20614,11 @@ declare module 'vscode' {
 		 * Various features that the model supports such as tool calling or image input.
 		 */
 		readonly capabilities: LanguageModelChatCapabilities;
+
+		/**
+		 * Whether or not the model will show up in the model picker.
+		 */
+		readonly isUserSelectable?: boolean;
 	}
 
 	/**
