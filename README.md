@@ -16,6 +16,7 @@ Integrates [Z.ai](https://z.ai) (智谱AI) models into VS Code Copilot Chat with
   - **GLM-4.7 Flash**: Faster variant with 131K max output tokens
   - **GLM-5**: 200K context window, up to 128K output tokens
   - **GLM-5.1**: 200K context window, up to 128K output tokens
+  - **GLM-5.2**: 1M context window, up to 128K output tokens
   - **GLM-5-Turbo**: 200K context window, up to 128K output tokens
   - **GLM-5V-Turbo**: Multimodal coding model with vision support
   - **GLM-5-Code**: 200K context window, up to 131K output tokens, optimized for coding
@@ -90,7 +91,7 @@ Once configured, select Z.ai as your chat provider in VS Code Copilot Chat:
 - Click the Pick Model button (`Cmd/Ctrl + Alt + .`)
 - Open Manage Language Models menu (⚙️)
 - Click Z.ai models under `Z.ai` category to "Show in the chat model picker"
-- Choose a Z.ai model (GLM-4.5, GLM-4.6, GLM-4.7, GLM-4.7 Flash, GLM-5, GLM-5-Turbo, GLM-5.1, GLM-5V-Turbo, or GLM-5-Code)
+- Choose a Z.ai model (GLM-4.5, GLM-4.6, GLM-4.7, GLM-4.7 Flash, GLM-5, GLM-5-Turbo, GLM-5.1, GLM-5.2, GLM-5V-Turbo, or GLM-5-Code)
   - Note: GLM-4.6V is used internally for image processing and is not selectable
 
 ### Configuration
@@ -113,6 +114,7 @@ Once configured, select Z.ai as your chat provider in VS Code Copilot Chat:
 | GLM-5         | 200,000        | 131,072    | No     | Yes   |
 | GLM-5-Turbo   | 200,000        | 131,072    | No     | Yes   |
 | GLM-5.1       | 200,000        | 131,072    | No     | Yes   |
+| GLM-5.2       | 1,000,000      | 131,072    | No     | Yes   |
 | GLM-5V-Turbo  | 200,000        | 131,072    | Yes    | Yes   |
 | GLM-5-Code    | 200,000        | 131,000    | No     | Yes   |
 
@@ -187,7 +189,7 @@ If you see authentication errors:
 
 ### Vision Not Working
 
-For non-vision models (GLM-4.5, GLM-4.6, GLM-4.7, GLM-5, GLM-5.1, GLM-5-Code):
+For non-vision models (GLM-4.5, GLM-4.6, GLM-4.7, GLM-5, GLM-5.1, GLM-5.2, GLM-5-Code):
 
 - Images are automatically converted to text descriptions using GLM-OCR MCP
 - If GLM-OCR fails, the extension internally uses GLM-4.6V for image analysis

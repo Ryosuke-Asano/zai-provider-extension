@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- GLM-5.2 model support (1M context window, 128K max output tokens)
+
 ## [0.9.1] - 2026-05-27
 
 ### Fixed

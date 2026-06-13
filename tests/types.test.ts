@@ -391,6 +391,18 @@ describe("ZAI_MODELS", () => {
     expect(model?.maxOutput).toBe(131072);
   });
 
+  it("should have GLM-5.2 model", () => {
+    const model = ZAI_MODELS.find((m) => m.id === "glm-5.2");
+    expect(model).toBeDefined();
+    expect(model?.name).toBe("GLM-5.2");
+    expect(model?.displayName).toBe("GLM-5.2");
+    expect(model?.supportsTools).toBe(true);
+    expect(model?.supportsVision).toBe(false);
+    // Z.ai devpack docs: 1M context window, 131072 max output tokens
+    expect(model?.contextWindow).toBe(1000000);
+    expect(model?.maxOutput).toBe(131072);
+  });
+
   it("should all models have required fields", () => {
     ZAI_MODELS.forEach((model) => {
       expect(model.id).toBeDefined();
