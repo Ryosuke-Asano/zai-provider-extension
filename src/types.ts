@@ -214,6 +214,17 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     supportsVision: false, // Text-only model
   },
   {
+    id: "glm-5.2",
+    name: "GLM-5.2",
+    displayName: "GLM-5.2",
+    // 1M-context variant (a.k.a. glm-5.2[1m] on the Anthropic-compatible endpoint);
+    // bare id on the OpenAI-compatible coding endpoint carries the 1M window.
+    contextWindow: 1000000,
+    maxOutput: 131072,
+    supportsTools: true,
+    supportsVision: false, // Text-only model
+  },
+  {
     id: "glm-5-turbo",
     name: "GLM-5-Turbo",
     displayName: "GLM-5-Turbo",
