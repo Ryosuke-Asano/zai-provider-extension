@@ -1092,15 +1092,18 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         total_tokens: totalTokens,
       });
       try {
+        // Mime type MUST be the literal "usage" — VS Code's chat UI matches it
+        // against CustomDataPartMimeTypes.Usage (=== "usage") to populate the
+        // context-window percentage. A custom vnd.* type is silently ignored,
+        // which leaves the indicator stuck at 0%.
         progress.report(
           vscode.LanguageModelDataPart.json(
             {
-              type: "usage",
               prompt_tokens: this._usageMetrics.prompt_tokens,
               completion_tokens: this._usageMetrics.completion_tokens,
               total_tokens: totalTokens,
             },
-            "application/vnd.zai.usage+json"
+            "usage"
           )
         );
       } catch (e) {
