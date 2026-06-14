@@ -112,6 +112,13 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
   /** Track whether usage metrics have been reported for the current request */
   private _usageReported = false;
 
+  /**
+   * Optional callback fired once after each completed chat response.
+   * Wired by extension.ts to refresh the Z.ai usage status bar indicator.
+   * Fire-and-forget; errors thrown here are swallowed by the caller.
+   */
+  onResponseComplete?: () => void;
+
   /** Debug counter */
   private _debugCallCount = 0;
 
@@ -1068,6 +1075,19 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
       this._reasoningContentBuffer = "";
       this._usageMetrics = { prompt_tokens: 0, completion_tokens: 0 };
       this._usageReported = false;
+    }
+
+    // Notify listeners that a Z.ai response just completed so they can
+    // refresh account-wide usage (e.g. the status bar indicator).
+    this.fireResponseComplete();
+  }
+
+  /** Fire the onResponseComplete callback once, swallowing any errors. */
+  private fireResponseComplete(): void {
+    try {
+      this.onResponseComplete?.();
+    } catch (e) {
+      console.warn("[Z.ai Model Provider] onResponseComplete callback failed", e);
     }
   }
 

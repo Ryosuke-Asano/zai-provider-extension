@@ -54,6 +54,16 @@
         "command": "zai.welcome",
         "title": "Welcome (Getting Started)",
         "category": "Z.ai"
+      },
+      {
+        "command": "zai.toggleUsageStatusBar",
+        "title": "Toggle Usage Status Bar",
+        "category": "Z.ai"
+      },
+      {
+        "command": "zai.refreshUsage",
+        "title": "Refresh Usage",
+        "category": "Z.ai"
       }
     ],
     "configuration": {

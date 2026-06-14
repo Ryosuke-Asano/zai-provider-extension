@@ -236,6 +236,14 @@ export interface Disposable {
   dispose(): void;
 }
 
+/** Read/write key-value store backing globalState/workspaceState (vscode.Memento). */
+export interface Memento {
+  get<T>(key: string): T | undefined;
+  get<T>(key: string, defaultValue: T): T;
+  update(key: string, value: unknown): Promise<void>;
+  keys(): string[];
+}
+
 export enum ExtensionMode {
   Production = 1,
   Development = 2,
@@ -265,6 +273,60 @@ export enum ViewColumn {
   One = 1,
   Two = 2,
   Three = 3,
+}
+
+/** Alignment of a status bar item (mirrors vscode.StatusBarAlignment). */
+export enum StatusBarAlignment {
+  Left = 1,
+  Right = 2,
+}
+
+/**
+ * Wraps a theme color key (e.g. "charts.green"). Mock stores the id so tests
+ * can assert which color was selected.
+ */
+export class ThemeColor {
+  constructor(public readonly id: string) {}
+}
+
+/**
+ * Mockable markdown string. Records appended markdown so tests can inspect
+ * the assembled tooltip content.
+ */
+export class MarkdownString {
+  value = "";
+  isTrusted = false;
+  supportThemeIcons = false;
+  supportHtml = false;
+  constructor(value?: string, supportThemeIcons?: boolean) {
+    if (value) {
+      this.value = value;
+    }
+    this.supportThemeIcons = supportThemeIcons ?? false;
+  }
+  appendMarkdown(value: string): this {
+    this.value += value;
+    return this;
+  }
+  appendCodeblock(code: string, language?: string): this {
+    this.value += `\n\`\`\`${language ?? ""}\n${code}\n\`\`\`\n`;
+    return this;
+  }
+}
+
+/** Interface for a status bar item (mirrors vscode.StatusBarItem). */
+export interface StatusBarItem {
+  alignment: StatusBarAlignment;
+  priority: number;
+  text: string;
+  tooltip: string | MarkdownString | undefined;
+  color: string | ThemeColor | undefined;
+  backgroundColor: string | ThemeColor | undefined;
+  command: string | undefined;
+  name: string | undefined;
+  show(): void;
+  hide(): void;
+  dispose(): void;
 }
 
 export class CancellationError extends Error {
@@ -326,7 +388,44 @@ export const window = {
   showInformationMessage: jest.fn(),
   showErrorMessage: jest.fn(),
   createWebviewPanel: jest.fn(),
+  createStatusBarItem: jest.fn(
+    (
+      _alignment?: StatusBarAlignment,
+      _priority?: number
+    ): StatusBarItem => createMockStatusBarItem()
+  ),
 };
+
+/** Factory for a fully-mocked StatusBarItem that records its show/hide calls. */
+export function createMockStatusBarItem(): StatusBarItem {
+  const shownCalls: number[] = [];
+  const hiddenCalls: number[] = [];
+  const item: StatusBarItem = {
+    alignment: StatusBarAlignment.Right,
+    priority: 0,
+    text: "",
+    tooltip: undefined,
+    color: undefined,
+    backgroundColor: undefined,
+    command: undefined,
+    name: undefined,
+    show() {
+      shownCalls.push(1);
+    },
+    hide() {
+      hiddenCalls.push(1);
+    },
+    dispose() {
+      /* no-op */
+    },
+  };
+  // Stash call counters on the item for test assertions.
+  (item as unknown as { __shown: number[]; __hidden: number[] }).__shown =
+    shownCalls;
+  (item as unknown as { __shown: number[]; __hidden: number[] }).__hidden =
+    hiddenCalls;
+  return item;
+}
 
 export const workspace = {
   getConfiguration: jest.fn((_section?: string) => ({

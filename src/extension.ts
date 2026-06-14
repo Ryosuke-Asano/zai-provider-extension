@@ -3,6 +3,7 @@ import packageJson from "../package.json";
 import { ZaiChatModelProvider } from "./provider";
 import { registerZaiTools } from "./tools";
 import { shouldShowWelcome, showWelcomePanel } from "./welcome";
+import { ZaiUsageMonitor } from "./usage";
 
 // Global provider reference for API key management
 let _provider: ZaiChatModelProvider | null = null;
@@ -34,6 +35,25 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(registration);
 
   console.log("[Z.ai Provider] Z.ai provider registered successfully");
+
+  // Usage / quota status bar indicator. Visibility is user-toggleable;
+  // key/auth/network problems render a grayed-out state but stay visible.
+  const usageMonitor = new ZaiUsageMonitor(
+    context.secrets,
+    context.globalState
+  );
+  context.subscriptions.push(usageMonitor);
+  // Refresh the indicator right after each completed Z.ai chat response.
+  provider.onResponseComplete = () => void usageMonitor.refresh();
+  // Re-evaluate the indicator immediately when the API key changes.
+  context.subscriptions.push(
+    context.secrets.onDidChange((e) => {
+      if (e.key === "zai.apiKey") {
+        void usageMonitor.refresh();
+      }
+    })
+  );
+  usageMonitor.start();
 
   // Register Z.ai tools (vision analysis, etc.) for Copilot to use
   const toolsRegistration = registerZaiTools(context.secrets);
@@ -72,6 +92,25 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   console.log("[Z.ai Provider] Extension activated");
+
+  // Toggle the usage status bar indicator on/off (preference persisted).
+  context.subscriptions.push(
+    vscode.commands.registerCommand("zai.toggleUsageStatusBar", async () => {
+      const enabled = await usageMonitor.toggle();
+      vscode.window.showInformationMessage(
+        enabled
+          ? "Z.ai usage indicator shown."
+          : "Z.ai usage indicator hidden."
+      );
+    })
+  );
+
+  // Manually refresh the usage status bar indicator.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("zai.refreshUsage", () => {
+      void usageMonitor.refresh();
+    })
+  );
 
   // Show welcome page on first install (when no API key is stored)
   void shouldShowWelcome(context)

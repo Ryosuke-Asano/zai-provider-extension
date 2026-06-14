@@ -179,4 +179,37 @@ describe("ZaiChatModelProvider", () => {
     );
     expect(count).toBe(Math.ceil(text.length / 2));
   });
+
+  it("should fire onResponseComplete once after a completed chat response", async () => {
+    const provider = new ZaiChatModelProvider(
+      secrets as unknown as vscode.SecretStorage,
+      "jest-agent"
+    );
+    const models = await provider.provideLanguageModelChatInformation(
+      { silent: true } as vscode.PrepareLanguageModelChatModelOptions,
+      createToken()
+    );
+    const glm5 = models.find((m) => m.id === "glm-5");
+    if (!glm5) {
+      throw new Error("glm-5 not found");
+    }
+
+    const callback = jest.fn();
+    provider.onResponseComplete = callback;
+
+    const messages = [vscode.LanguageModelChatMessage.User("hello")];
+    const progress = {
+      report: jest.fn(),
+    } as unknown as vscode.Progress<vscode.LanguageModelResponsePart>;
+
+    await provider.provideLanguageModelChatResponse(
+      glm5,
+      messages,
+      {},
+      progress,
+      createToken()
+    );
+
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
 });
