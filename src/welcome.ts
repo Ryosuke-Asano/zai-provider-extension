@@ -204,6 +204,14 @@ function getWelcomeHtml(extVersion: string): string {
     <li>Choose a model (GLM-4.5, GLM-4.6, GLM-4.7, GLM-5, GLM-5.1, GLM-5.2, GLM-5-Turbo, GLM-5V-Turbo, or GLM-5-Code)</li>
   </ol>
 
+  <h2>Usage Indicator</h2>
+  <p>
+    A Z.ai usage indicator appears in the status bar, showing your Token-window
+    usage at a glance (color-coded green / yellow / red). Hover it for a per-window
+    breakdown and reset countdown. Run <code>Z.ai: Toggle Usage Status Bar</code>
+    to hide or show it.
+  </p>
+
   <div class="footer">
     <p>
       <a href="https://github.com/Ryosuke-Asano/zai-provider-extension">GitHub</a> ·
