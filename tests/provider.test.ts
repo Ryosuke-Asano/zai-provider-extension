@@ -179,4 +179,106 @@ describe("ZaiChatModelProvider", () => {
     );
     expect(count).toBe(Math.ceil(text.length / 2));
   });
+
+  it("should expose a Thinking Effort configurationSchema only for GLM-5.2", async () => {
+    const provider = new ZaiChatModelProvider(
+      secrets as unknown as vscode.SecretStorage,
+      "jest-agent"
+    );
+    const models = await provider.provideLanguageModelChatInformation(
+      { silent: true } as vscode.PrepareLanguageModelChatModelOptions,
+      createToken()
+    );
+
+    const glm52 = models.find((m) => m.id === "glm-5.2");
+    expect(glm52).toBeDefined();
+    const prop = glm52?.configurationSchema?.properties?.reasoningEffort;
+    expect(prop).toBeDefined();
+    expect(prop?.type).toBe("string");
+    // Only the three levels that produce a distinct outcome on GLM-5.2. The
+    // other documented values are server-side aliases that collapse onto these
+    // (xhigh→max; low/medium→high; minimal→none), so they are not offered.
+    expect(prop?.enum).toEqual(["max", "high", "none"]);
+    expect(prop?.default).toBe("max");
+    expect(prop?.group).toBe("navigation");
+
+    // Other models must not expose the picker.
+    const glm5 = models.find((m) => m.id === "glm-5");
+    expect(glm5?.configurationSchema).toBeUndefined();
+  });
+
+  it("should forward reasoning_effort for GLM-5.2 when selected in the picker", async () => {
+    const provider = new ZaiChatModelProvider(
+      secrets as unknown as vscode.SecretStorage,
+      "jest-agent"
+    );
+    const models = await provider.provideLanguageModelChatInformation(
+      { silent: true } as vscode.PrepareLanguageModelChatModelOptions,
+      createToken()
+    );
+    const glm52 = models.find((m) => m.id === "glm-5.2");
+    if (!glm52) {
+      throw new Error("glm-5.2 not found");
+    }
+
+    const messages = [vscode.LanguageModelChatMessage.User("hello")];
+    const progress = {
+      report: jest.fn(),
+    } as unknown as vscode.Progress<vscode.LanguageModelResponsePart>;
+
+    await provider.provideLanguageModelChatResponse(
+      glm52,
+      messages,
+      {
+        modelConfiguration: { reasoningEffort: "high" },
+      } as vscode.ProvideLanguageModelChatResponseOptions,
+      progress,
+      createToken()
+    );
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const requestInit = (global.fetch as jest.Mock).mock.calls[0]?.[1] as {
+      body?: string;
+    };
+    const requestBody = JSON.parse(requestInit.body ?? "{}");
+    expect(requestBody.thinking).toEqual({ type: "enabled" });
+    expect(requestBody.reasoning_effort).toBe("high");
+  });
+
+  it("should omit reasoning_effort for non-supporting models even when configured", async () => {
+    const provider = new ZaiChatModelProvider(
+      secrets as unknown as vscode.SecretStorage,
+      "jest-agent"
+    );
+    const models = await provider.provideLanguageModelChatInformation(
+      { silent: true } as vscode.PrepareLanguageModelChatModelOptions,
+      createToken()
+    );
+    const glm5 = models.find((m) => m.id === "glm-5");
+    if (!glm5) {
+      throw new Error("glm-5 not found");
+    }
+
+    const messages = [vscode.LanguageModelChatMessage.User("hello")];
+    const progress = {
+      report: jest.fn(),
+    } as unknown as vscode.Progress<vscode.LanguageModelResponsePart>;
+
+    await provider.provideLanguageModelChatResponse(
+      glm5,
+      messages,
+      {
+        modelConfiguration: { reasoningEffort: "high" },
+      } as vscode.ProvideLanguageModelChatResponseOptions,
+      progress,
+      createToken()
+    );
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const requestInit = (global.fetch as jest.Mock).mock.calls[0]?.[1] as {
+      body?: string;
+    };
+    const requestBody = JSON.parse(requestInit.body ?? "{}");
+    expect(requestBody.reasoning_effort).toBeUndefined();
+  });
 });

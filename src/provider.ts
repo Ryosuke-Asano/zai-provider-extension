@@ -17,6 +17,7 @@ import type {
   ZaiStreamResponse,
   Json,
   ZaiRequestBody,
+  ZaiReasoningEffort,
 } from "./types";
 import { ZAI_MODELS } from "./types";
 import {
@@ -56,6 +57,63 @@ const DEFAULT_MAX_TOKENS = 65536;
 const MAX_RETRIES = 10;
 const BASE_RETRY_DELAY_MS = 2000;
 const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 504];
+
+/**
+ * Effort levels exposed in the picker for GLM-5.2.
+ *
+ * Per the Z.ai API docs, `reasoning_effort` is "Only supported by GLM-5.2" and
+ * "takes effect when thinking is enabled". The docs' enum lists seven values,
+ * but on GLM-5.2 only three produce a distinct outcome — the rest are
+ * compatibility aliases the server collapses onto these:
+ *   - max        ← (native) the documented default
+ *   - xhigh      → mapped to `max`
+ *   - high       ← (native)
+ *   - medium, low → mapped to `high`
+ *   - none, minimal → skip thinking
+ *
+ * To avoid showing "fake" (no-op) levels, only the three distinct outcomes are
+ * offered. For other models the param is unsupported, so no picker is
+ * contributed (see `supportsReasoningEffort` in types.ts).
+ */
+const REASONING_EFFORT_LEVELS: readonly string[] = ["max", "high", "none"];
+
+const REASONING_EFFORT_LABELS: Record<string, string> = {
+  max: "Max",
+  high: "High",
+  none: "None",
+};
+
+const REASONING_EFFORT_DESCRIPTIONS: Record<string, string> = {
+  max: "Absolute maximum capability with no constraints (default)",
+  high: "Greater reasoning depth but slower",
+  none: "No reasoning; the model skips thinking",
+};
+
+/**
+ * JSON-schema describing the "Thinking Effort" picker contributed to the model
+ * menu for GLM-5.2. `group: 'navigation'` renders it as a primary action next to
+ * the model picker. The selected value is forwarded to the provider via
+ * `modelConfiguration.reasoningEffort`.
+ */
+const REASONING_EFFORT_SCHEMA: vscode.LanguageModelConfigurationSchema = {
+  properties: {
+    reasoningEffort: {
+      type: "string",
+      title: "Thinking Effort",
+      enum: REASONING_EFFORT_LEVELS as string[],
+      enumItemLabels: REASONING_EFFORT_LEVELS.map(
+        (l) => REASONING_EFFORT_LABELS[l] ?? l
+      ),
+      enumDescriptions: REASONING_EFFORT_LEVELS.map(
+        (l) => REASONING_EFFORT_DESCRIPTIONS[l] ?? l
+      ),
+      default: "max",
+      description:
+        "Controls reasoning depth. Only supported by GLM-5.2; takes effect when thinking is enabled.",
+      group: "navigation",
+    },
+  },
+};
 
 /**
  * VS Code Chat provider backed by Z.ai API.
@@ -262,6 +320,11 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
             imageInput: true, // Image input allowed; non-vision models auto-route
           },
           isUserSelectable: true,
+          // GLM-5.2 exposes a "Thinking Effort" picker next to the model picker.
+          // The user's selection is forwarded to the provider via modelConfiguration.
+          configurationSchema: model.supportsReasoningEffort
+            ? REASONING_EFFORT_SCHEMA
+            : undefined,
         };
       }
     );
@@ -598,11 +661,29 @@ export class ZaiChatModelProvider implements LanguageModelChatProvider {
         temperature: temperatureVal,
       };
 
+      // Resolve per-model reasoning effort selected in the model picker.
+      // GLM-5.2 declares a `reasoningEffort` configurationSchema option; VS Code
+      // forwards the user's selection via `modelConfiguration` (proposed chatProvider API)
+      // or `modelOptions` (stable). Read both defensively.
+      const modelConfig =
+        (options.modelConfiguration as Record<string, Json> | undefined) ?? mo;
+      const reasoningEffort = modelConfig?.reasoningEffort as
+        | ZaiReasoningEffort
+        | undefined;
+
       // Enable thinking mode if setting is enabled
       if (this.isThinkingEnabled()) {
         requestBody.thinking = {
           type: "enabled",
         };
+        // reasoning_effort is only supported by GLM-5.2 and takes effect when
+        // thinking is enabled. Forward the picker selection verbatim (the docs'
+        // default is `max`; VS Code resolves schema defaults when untouched).
+        // The API applies the documented compatibility mappings:
+        //   none/minimal → skip thinking; low/medium → high; xhigh → max.
+        if (effectiveModelInfo?.supportsReasoningEffort && reasoningEffort) {
+          requestBody.reasoning_effort = reasoningEffort;
+        }
       }
 
       // Allow-list model options

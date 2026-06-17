@@ -126,7 +126,28 @@ export interface ZaiModelInfo {
    * For example, `glm-5v-turbo` may be kept for internal vision fallback.
    */
   internal?: boolean;
+  /**
+   * When true, the model supports the `reasoning_effort` parameter
+   * (takes effect when `thinking` is enabled). Currently GLM-5.2 only.
+   */
+  supportsReasoningEffort?: boolean;
 }
+
+/**
+ * Reasoning effort levels supported by GLM-5.2.
+ * Takes effect when `thinking` is enabled. Default is `max`.
+ * - `none` / `minimal`: model skips thinking
+ * - `low` / `medium`: mapped to `high` by the API
+ * - `xhigh`: mapped to `max` by the API
+ */
+export type ZaiReasoningEffort =
+  | "max"
+  | "xhigh"
+  | "high"
+  | "medium"
+  | "low"
+  | "minimal"
+  | "none";
 
 /**
  * A strongly-typed request body used for Z.ai Chat API requests
@@ -139,6 +160,8 @@ export interface ZaiRequestBody {
   max_tokens?: number;
   temperature?: number;
   thinking?: { type: string };
+  /** Controls reasoning effort level. Only supported by GLM-5.2. */
+  reasoning_effort?: ZaiReasoningEffort;
   stop?: string | string[];
   frequency_penalty?: number;
   presence_penalty?: number;
@@ -223,6 +246,7 @@ export const ZAI_MODELS: ZaiModelInfo[] = [
     maxOutput: 131072,
     supportsTools: true,
     supportsVision: false, // Text-only model
+    supportsReasoningEffort: true, // Only GLM-5.2 supports reasoning_effort
   },
   {
     id: "glm-5-turbo",

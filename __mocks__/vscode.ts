@@ -144,6 +144,23 @@ export class LanguageModelChatMessage {
   }
 }
 
+export interface LanguageModelConfigurationSchemaProperty {
+  type?: string;
+  title?: string;
+  enum?: readonly string[];
+  enumItemLabels?: readonly string[];
+  enumDescriptions?: readonly string[];
+  default?: unknown;
+  description?: string;
+  group?: string;
+}
+
+export interface LanguageModelConfigurationSchema {
+  properties?: {
+    readonly [key: string]: LanguageModelConfigurationSchemaProperty;
+  };
+}
+
 export interface LanguageModelChatInformation {
   id: string;
   name: string;
@@ -156,6 +173,7 @@ export interface LanguageModelChatInformation {
     toolCalling?: boolean | number;
     imageInput?: boolean;
   };
+  configurationSchema?: LanguageModelConfigurationSchema;
 }
 
 export interface ProvideLanguageModelChatResponseOptions {
@@ -165,6 +183,7 @@ export interface ProvideLanguageModelChatResponseOptions {
     top_p?: number;
     stop?: string | string[];
   };
+  modelConfiguration?: { readonly [key: string]: any };
   tools?: readonly LanguageModelTool[];
   toolMode?: LanguageModelChatToolMode;
 }
