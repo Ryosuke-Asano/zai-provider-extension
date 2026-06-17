@@ -28,6 +28,10 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "enabledApiProposals": [
+    "chatProvider",
+    "languageModelThinkingPart"
+  ],
   "contributes": {
     "languageModelChatProviders": [
       {
